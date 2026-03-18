@@ -43,6 +43,8 @@ order_map = {
 
 order_results = partial(_order_results, default_order="-created_at", allowed_orders=order_map)
 
+PLACEHOLDER_EMAIL_DOMAIN = "users.redash.invalid"
+
 
 def invite_user(org, inviter, user, send_email=True):
     d = user.to_dict()
@@ -52,6 +54,7 @@ def invite_user(org, inviter, user, send_email=True):
         send_invite_email(inviter, user, invite_url, org)
     else:
         d["invite_link"] = invite_url
+        d["invite_link_reason"] = "mail_server_not_configured" if send_email else "email_not_provided"
 
     return d
 
@@ -62,6 +65,18 @@ def require_allowed_email(email):
 
     if domain in blacklist or domain in settings.BLOCKED_DOMAINS:
         abort(400, message="Bad email address.")
+
+
+def build_placeholder_email(org, login_name):
+    base_local_part = (login_name or "user").replace("@", "-")
+    suffix = 0
+
+    while True:
+        candidate_local_part = base_local_part if suffix == 0 else "{}-{}".format(base_local_part, suffix + 1)
+        candidate_email = "{}@{}".format(candidate_local_part, PLACEHOLDER_EMAIL_DOMAIN)
+        if models.User.get_by_org(org).filter(models.User.email == candidate_email).count() == 0:
+            return candidate_email
+        suffix += 1
 
 
 class UserListResource(BaseResource):
@@ -130,16 +145,25 @@ class UserListResource(BaseResource):
     @require_admin
     def post(self):
         req = request.get_json(force=True)
-        require_fields(req, ("name", "email"))
+        require_fields(req, ("name",))
 
-        if "@" not in req["email"]:
-            abort(400, message="Bad email address.")
-        require_allowed_email(req["email"])
+        login_name = models.User.normalize_login_name(req["name"])
+        if not login_name:
+            abort(400, message="Name is required.")
+
+        provided_email = (req.get("email") or "").strip().lower()
+        email = provided_email or build_placeholder_email(self.current_org, login_name)
+
+        if provided_email:
+            if "@" not in provided_email:
+                abort(400, message="Bad email address.")
+            require_allowed_email(provided_email)
 
         user = models.User(
             org=self.current_org,
             name=req["name"],
-            email=req["email"],
+            login_name=login_name,
+            email=email,
             is_invitation_pending=True,
             group_ids=[self.current_org.default_group.id],
         )
@@ -154,7 +178,7 @@ class UserListResource(BaseResource):
 
         self.record_event({"action": "create", "object_id": user.id, "object_type": "user"})
 
-        should_send_invitation = "no_invite" not in request.args
+        should_send_invitation = "no_invite" not in request.args and bool(provided_email)
         return invite_user(self.current_org, self.current_user, user, send_email=should_send_invitation)
 
 
@@ -233,6 +257,9 @@ class UserResource(BaseResource):
 
             if len(params["group_ids"]) == 0:
                 params.pop("group_ids")
+
+        if "name" in params:
+            params["login_name"] = models.User.normalize_login_name(params["name"])
 
         if "email" in params:
             require_allowed_email(params["email"])

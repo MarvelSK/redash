@@ -27,6 +27,7 @@ class ParameterValueInput extends React.Component {
     onSelect: PropTypes.func,
     className: PropTypes.string,
     regex: PropTypes.string,
+    disabled: PropTypes.bool,
   };
 
   static defaultProps = {
@@ -38,6 +39,7 @@ class ParameterValueInput extends React.Component {
     onSelect: () => {},
     className: "",
     regex: "",
+    disabled: false,
   };
 
   constructor(props) {
@@ -74,6 +76,7 @@ class ParameterValueInput extends React.Component {
         className={this.props.className}
         value={value}
         parameter={parameter}
+        disabled={this.props.disabled}
         onSelect={this.onSelect}
       />
     );
@@ -88,6 +91,7 @@ class ParameterValueInput extends React.Component {
         className={this.props.className}
         value={value}
         parameter={parameter}
+        disabled={this.props.disabled}
         onSelect={this.onSelect}
       />
     );
@@ -103,6 +107,7 @@ class ParameterValueInput extends React.Component {
     return (
       <SelectWithVirtualScroll
         className={this.props.className}
+        disabled={this.props.disabled}
         mode={parameter.multiValuesOptions ? "multiple" : "default"}
         value={normalize(value)}
         onChange={this.onSelect}
@@ -121,6 +126,7 @@ class ParameterValueInput extends React.Component {
     return (
       <QueryBasedParameterInput
         className={this.props.className}
+        disabled={this.props.disabled}
         mode={parameter.multiValuesOptions ? "multiple" : "default"}
         parameter={parameter}
         value={value}
@@ -141,6 +147,7 @@ class ParameterValueInput extends React.Component {
     return (
       <InputNumber
         className={className}
+        disabled={this.props.disabled}
         value={normalize(value)}
         aria-label="Parameter number value"
         onChange={(val) => this.onSelect(normalize(val))}
@@ -157,6 +164,7 @@ class ParameterValueInput extends React.Component {
         <Tooltip title={`Regex to match: ${this.props.regex}`} placement="right">
           <Input
             className={className}
+            disabled={this.props.disabled}
             value={value}
             aria-label="Parameter text pattern value"
             onChange={(e) => this.onSelect(e.target.value)}
@@ -173,6 +181,7 @@ class ParameterValueInput extends React.Component {
     return (
       <Input
         className={className}
+        disabled={this.props.disabled}
         value={value}
         aria-label="Parameter text value"
         data-test="TextParamInput"

@@ -147,12 +147,17 @@ class UsersList extends React.Component {
       .then(user => {
         notification.success("Saved.");
         if (user.invite_link) {
+          const noEmailProvided = user.invite_link_reason === "email_not_provided";
           Modal.warning({
-            title: "Email not sent!",
+            title: noEmailProvided ? "Share sign-in link" : "Email not sent!",
             content: (
               <React.Fragment>
                 <p>
-                  The mail server is not configured, please send the following link to <b>{user.name}</b>:
+                  {noEmailProvided
+                    ? "No email was provided for this user. Share the following link so they can set a password and sign in:"
+                    : "The mail server is not configured, please send the following link to "}
+                  {!noEmailProvided && <b>{user.name}</b>}
+                  {!noEmailProvided && ":"}
                 </p>
                 <InputWithCopy value={absoluteUrl(user.invite_link)} aria-label="Invite link" readOnly />
               </React.Fragment>

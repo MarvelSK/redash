@@ -80,6 +80,7 @@ class User(TimestampMixin, db.Model, BelongsToOrgMixin, UserMixin, PermissionsCh
     org_id = Column(key_type("Organization"), db.ForeignKey("organizations.id"))
     org = db.relationship("Organization", backref=db.backref("users", lazy="dynamic"))
     name = Column(db.String(320))
+    login_name = Column(db.String(320), nullable=True)
     email = Column(EmailType)
     password_hash = Column(db.String(128), nullable=True)
     group_ids = Column(
@@ -110,7 +111,19 @@ class User(TimestampMixin, db.Model, BelongsToOrgMixin, UserMixin, PermissionsCh
     def __init__(self, *args, **kwargs):
         if kwargs.get("email") is not None:
             kwargs["email"] = kwargs["email"].lower()
+
+        if kwargs.get("login_name") is None and kwargs.get("name") is not None:
+            kwargs["login_name"] = self.normalize_login_name(kwargs["name"])
+
         super(User, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def normalize_login_name(name):
+        if name is None:
+            return None
+
+        normalized = name.strip().lower()
+        return normalized if normalized else None
 
     @property
     def is_disabled(self):
@@ -135,6 +148,7 @@ class User(TimestampMixin, db.Model, BelongsToOrgMixin, UserMixin, PermissionsCh
         d = {
             "id": self.id,
             "name": self.name,
+            "login_name": self.login_name,
             "email": self.email,
             "profile_image_url": profile_image_url,
             "groups": self.group_ids,
@@ -185,6 +199,11 @@ class User(TimestampMixin, db.Model, BelongsToOrgMixin, UserMixin, PermissionsCh
     @classmethod
     def get_by_email_and_org(cls, email, org):
         return cls.get_by_org(org).filter(cls.email == email).one()
+
+    @classmethod
+    def find_by_login_name_and_org(cls, login_name, org):
+        normalized_login_name = cls.normalize_login_name(login_name)
+        return cls.get_by_org(org).filter(cls.login_name == normalized_login_name)
 
     @classmethod
     def get_by_api_key_and_org(cls, api_key, org):

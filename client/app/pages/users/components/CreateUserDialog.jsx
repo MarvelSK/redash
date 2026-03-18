@@ -7,10 +7,7 @@ import { wrap as wrapDialog, DialogPropType } from "@/components/DialogWrapper";
 import recordEvent from "@/services/recordEvent";
 import { useUniqueId } from "@/lib/hooks/useUniqueId";
 
-const formFields = [
-  { required: true, name: "name", title: "Name", type: "text", autoFocus: true },
-  { required: true, name: "email", title: "Email", type: "email" },
-];
+const formFields = [{ required: true, name: "name", title: "Name", type: "text", autoFocus: true }];
 
 function CreateUserDialog({ dialog }) {
   const [error, setError] = useState(null);

@@ -8,6 +8,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from redash import __version__, limiter, models, settings
 from redash.authentication import current_org, get_login_url, get_next_path
 from redash.authentication.account import (
+    reset_link_for_user,
     send_password_reset_email,
     send_user_disabled_email,
     send_verify_email,
@@ -189,18 +190,25 @@ def login(org_slug=None):
     if current_user.is_authenticated:
         return redirect(next_path)
 
+    password_setup_link = None
+    submitted_name = request.form.get("name", "")
+
     if request.method == "POST" and current_org.get_setting("auth_password_login_enabled"):
-        try:
-            org = current_org._get_current_object()
-            user = models.User.get_by_email_and_org(request.form["email"], org)
-            if user and not user.is_disabled and user.verify_password(request.form["password"]):
-                remember = "remember" in request.form
-                login_user(user, remember=remember)
-                return redirect(next_path)
+        org = current_org._get_current_object()
+        normalized_name = models.User.normalize_login_name(submitted_name)
+
+        if not normalized_name:
+            flash("Please provide a name.")
+        else:
+            matching_users = models.User.find_by_login_name_and_org(normalized_name, org).all()
+            active_users = [u for u in matching_users if not u.is_disabled]
+
+            if len(active_users) == 1:
+                password_setup_link = reset_link_for_user(active_users[0])
+            elif len(active_users) > 1:
+                flash("More than one account matches this name. Please contact your administrator.")
             else:
-                flash("Wrong email or password.")
-        except NoResultFound:
-            flash("Wrong email or password.")
+                flash("No active account was found for this name.")
     elif request.method == "POST" and not current_org.get_setting("auth_password_login_enabled"):
         flash("Password login is not enabled for your organization.")
 
@@ -210,7 +218,8 @@ def login(org_slug=None):
         "login.html",
         org_slug=org_slug,
         next=next_path,
-        email=request.form.get("email", ""),
+        name=submitted_name,
+        password_setup_link=password_setup_link,
         show_google_openid=settings.GOOGLE_OAUTH_ENABLED,
         google_auth_url=google_auth_url,
         show_password_login=current_org.get_setting("auth_password_login_enabled"),

@@ -5,6 +5,8 @@ import cx from "classnames";
 
 import Button from "antd/lib/button";
 import Checkbox from "antd/lib/checkbox";
+import Input from "antd/lib/input";
+import Select from "antd/lib/select";
 import routeWithUserSession from "@/components/ApplicationArea/routeWithUserSession";
 import DynamicComponent from "@/components/DynamicComponent";
 import DashboardGrid from "@/components/dashboards/DashboardGrid";
@@ -18,14 +20,65 @@ import routes from "@/services/routes";
 import location from "@/services/location";
 import url from "@/services/url";
 import useImmutableCallback from "@/lib/hooks/useImmutableCallback";
+import Group from "@/services/group";
 
 import useDashboard from "./hooks/useDashboard";
 import DashboardHeader from "./components/DashboardHeader";
 
 import "./DashboardPage.less";
 
-function DashboardSettings({ dashboardConfiguration }) {
+function stringifyFixedValue(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function parseFixedValue(value) {
+  const trimmedValue = value.trim();
+  if (trimmedValue === "") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(trimmedValue);
+  } catch (_error) {
+    return value;
+  }
+}
+
+function normalizeGroupIds(groupIds) {
+  return map(groupIds, id => Number(id));
+}
+
+function DashboardSettings({ dashboardConfiguration, globalParameters }) {
   const { dashboard, updateDashboard } = dashboardConfiguration;
+  const [groups, setGroups] = useState([]);
+
+  useEffect(() => {
+    Group.query().then(allGroups => {
+      setGroups(Array.isArray(allGroups) ? allGroups : []);
+    });
+  }, []);
+
+  const parameterPermissions = dashboard.options.parameterPermissions || {};
+
+  const updateParameterPermission = (parameterName, patch) => {
+    const currentRule = parameterPermissions[parameterName] || {};
+    const updatedRule = { ...currentRule, ...patch };
+
+    updateDashboard({
+      options: {
+        ...dashboard.options,
+        parameterPermissions: {
+          ...parameterPermissions,
+          [parameterName]: updatedRule,
+        },
+      },
+    });
+  };
+
   return (
     <div className="m-b-10 p-15 bg-white tiled">
       <Checkbox
@@ -35,12 +88,77 @@ function DashboardSettings({ dashboardConfiguration }) {
       >
         Use Dashboard Level Filters
       </Checkbox>
+
+      {!isEmpty(globalParameters) && (
+        <div className="m-t-20">
+          <h4 className="m-b-15">Parameter Access Rules</h4>
+          {map(globalParameters, param => {
+            const rule = parameterPermissions[param.name] || {};
+
+            return (
+              <div key={param.name} className="m-b-15 p-10" style={{ border: "1px solid #eaeaea" }}>
+                <div className="m-b-5">
+                  <strong>{param.title || param.name}</strong>
+                </div>
+
+                <div className="m-b-5">Groups allowed to edit</div>
+                <Select
+                  mode="multiple"
+                  value={rule.editableByGroups || []}
+                  style={{ width: "100%" }}
+                  placeholder="Leave empty to allow all groups"
+                  onChange={(value) =>
+                    updateParameterPermission(param.name, { editableByGroups: normalizeGroupIds(value) })
+                  }
+                >
+                  {map(groups, group => (
+                    <Select.Option key={group.id} value={group.id}>
+                      {group.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+
+                <div className="m-t-10 m-b-5">Groups locked to fixed value</div>
+                <Select
+                  mode="multiple"
+                  value={rule.fixedValueGroupIds || []}
+                  style={{ width: "100%" }}
+                  placeholder="Select groups that must use fixed value"
+                  onChange={(value) =>
+                    updateParameterPermission(param.name, { fixedValueGroupIds: normalizeGroupIds(value) })
+                  }
+                >
+                  {map(groups, group => (
+                    <Select.Option key={group.id} value={group.id}>
+                      {group.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+
+                <div className="m-t-10 m-b-5">Fixed value (plain text or JSON)</div>
+                <Input
+                  value={stringifyFixedValue(rule.fixedValue)}
+                  onChange={(event) =>
+                    updateParameterPermission(param.name, { fixedValue: parseFixedValue(event.target.value) })
+                  }
+                  placeholder={'Example: US or ["US","UK"]'}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 DashboardSettings.propTypes = {
   dashboardConfiguration: PropTypes.object.isRequired, // eslint-disable-line react/forbid-prop-types
+  globalParameters: PropTypes.arrayOf(PropTypes.object),
+};
+
+DashboardSettings.defaultProps = {
+  globalParameters: [],
 };
 
 function AddWidgetContainer({ dashboardConfiguration, className, ...props }) {
@@ -144,7 +262,9 @@ function DashboardComponent(props) {
           <Filters filters={filters} onChange={setFilters} />
         </div>
       )}
-      {editingLayout && <DashboardSettings dashboardConfiguration={dashboardConfiguration} />}
+      {editingLayout && (
+        <DashboardSettings dashboardConfiguration={dashboardConfiguration} globalParameters={globalParameters} />
+      )}
       <div id="dashboard-container">
         <DashboardGrid
           dashboard={dashboard}

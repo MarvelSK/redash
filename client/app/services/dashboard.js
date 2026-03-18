@@ -5,6 +5,7 @@ import Widget from "./widget";
 import location from "@/services/location";
 import { cloneParameter } from "@/services/parameters";
 import { policy } from "@/services/policy";
+import { currentUser } from "@/services/auth";
 
 export const urlForDashboard = ({ id, slug }) => `dashboards/${id}-${slug}`;
 
@@ -35,6 +36,37 @@ export function collectDashboardFilters(dashboard, queryResults, urlParams) {
   });
 
   return _.values(filters);
+}
+
+function hasAnyGroupIntersection(groupIdsA = [], groupIdsB = []) {
+  const normalizedA = groupIdsA.map((id) => String(id));
+  return groupIdsB.some((id) => normalizedA.includes(String(id)));
+}
+
+function applyParameterPermissions(param, permissionsMap = {}, userGroupIds = []) {
+  const rule = permissionsMap[param.name];
+  param.isReadonly = false;
+
+  if (!_.isObject(rule)) {
+    return;
+  }
+
+  const editableByGroups = _.isArray(rule.editableByGroups) ? rule.editableByGroups : [];
+  const fixedValueGroupIds = _.isArray(rule.fixedValueGroupIds) ? rule.fixedValueGroupIds : [];
+  const hasFixedValue =
+    Object.prototype.hasOwnProperty.call(rule, "fixedValue") &&
+    rule.fixedValue !== null &&
+    hasAnyGroupIntersection(fixedValueGroupIds, userGroupIds);
+
+  if (hasFixedValue) {
+    param.setValue(rule.fixedValue);
+    param.isReadonly = true;
+    return;
+  }
+
+  if (editableByGroups.length > 0) {
+    param.isReadonly = !hasAnyGroupIntersection(editableByGroups, userGroupIds);
+  }
 }
 
 function prepareWidgetsForDashboard(widgets) {
@@ -190,6 +222,8 @@ Dashboard.prototype.canEdit = function canEdit() {
 Dashboard.prototype.getParametersDefs = function getParametersDefs() {
   const globalParams = {};
   const queryParams = location.search;
+  const parameterPermissions = this.options.parameterPermissions || {};
+  const userGroupIds = currentUser.groups || [];
   _.each(this.widgets, (widget) => {
     if (widget.getQuery()) {
       const mappings = widget.getParameterMappings();
@@ -221,6 +255,7 @@ Dashboard.prototype.getParametersDefs = function getParametersDefs() {
     _.each(globalParams, (param) => {
       param.setValue(mergedValues[param.name]); // apply merged value
       param.fromUrlParams(queryParams); // allow param-specific parsing logic
+      applyParameterPermissions(param, parameterPermissions, userGroupIds);
     })
   );
 
