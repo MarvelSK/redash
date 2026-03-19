@@ -44,7 +44,7 @@ def login(org_slug=None):
 
     logger.info("Logging in " + email + " via remote user")
 
-    user = create_and_login_user(current_org, email, email)
+    user = create_and_login_user(current_org, email, email, auth_context={"headers": dict(request.headers)})
     if user is None:
         return logout_and_redirect_to_index()
 

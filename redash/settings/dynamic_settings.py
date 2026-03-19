@@ -25,6 +25,16 @@ def periodic_jobs():
     pass
 
 
+def user_shop_id(org, user, request, auth_context=None):
+    """
+    Optional hook for mapping a user to a shop identifier during login.
+
+    Return None to skip updates, or return the shop ID value to persist it in
+    ``user.details["shop_id"]``.
+    """
+    return None
+
+
 # This provides the ability to override the way we store QueryResult's data column.
 # Reference implementation: redash.models.DBPersistence
 QueryResultPersistence = None

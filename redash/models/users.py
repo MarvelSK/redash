@@ -98,6 +98,7 @@ class User(TimestampMixin, db.Model, BelongsToOrgMixin, UserMixin, PermissionsCh
         default={},
     )
     active_at = json_cast_property(db.DateTime(True), "details", "active_at", default=None)
+    shop_id = json_cast_property(db.Text(), "details", "shop_id", default=None)
     _profile_image_url = json_cast_property(db.Text(), "details", "profile_image_url", default=None)
     is_invitation_pending = json_cast_property(db.Boolean(True), "details", "is_invitation_pending", default=False)
     is_email_verified = json_cast_property(db.Boolean(True), "details", "is_email_verified", default=True)
@@ -157,6 +158,7 @@ class User(TimestampMixin, db.Model, BelongsToOrgMixin, UserMixin, PermissionsCh
             "disabled_at": self.disabled_at,
             "is_disabled": self.is_disabled,
             "active_at": self.active_at,
+            "shop_id": self.shop_id,
             "is_invitation_pending": self.is_invitation_pending,
             "is_email_verified": self.is_email_verified,
         }

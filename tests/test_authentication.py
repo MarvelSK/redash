@@ -203,6 +203,18 @@ class TestCreateAndLoginUser(BaseTestCase):
             create_and_login_user(self.factory.org, "New Name", user.email)
             login_user_mock.assert_called_once_with(user, remember=True)
 
+    def test_sets_user_shop_id_from_dynamic_hook(self):
+        user = self.factory.create_user(email="test@example.com")
+
+        with patch("redash.authentication.login_user"), patch(
+            "redash.settings.dynamic_settings.user_shop_id", return_value="shop-42"
+        ):
+            create_and_login_user(self.factory.org, user.name, user.email)
+
+        models.db.session.expire_all()
+        db_user = models.User.get_by_email_and_org(user.email, self.factory.org)
+        self.assertEqual(db_user.shop_id, "shop-42")
+
 
 class TestVerifyProfile(BaseTestCase):
     def test_no_domain_allowed_for_org(self):

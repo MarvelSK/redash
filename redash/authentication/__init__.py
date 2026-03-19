@@ -193,8 +193,15 @@ def jwt_token_load_user_from_request(request):
 
     try:
         user = models.User.get_by_email_and_org(payload["email"], org)
+        shop_id = _resolve_user_shop_id(org, user, payload)
+        if shop_id is not None:
+            details = user.details or {}
+            if details.get("shop_id") != shop_id:
+                details["shop_id"] = shop_id
+                user.details = details
+                models.db.session.commit()
     except models.NoResultFound:
-        user = create_and_login_user(current_org, payload["email"], payload["email"])
+        user = create_and_login_user(current_org, payload["email"], payload["email"], auth_context=payload)
 
     return user
 
@@ -268,7 +275,22 @@ def init_app(app):
     login_manager.request_loader(request_loader)
 
 
-def create_and_login_user(org, name, email, picture=None):
+def _resolve_user_shop_id(org, user_object, auth_context=None):
+    shop_id_resolver = getattr(settings.dynamic_settings, "user_shop_id", None)
+    if not callable(shop_id_resolver):
+        return None
+
+    try:
+        return shop_id_resolver(org, user_object, request, auth_context)
+    except TypeError:
+        # Backward compatibility for custom hooks that don't accept auth_context.
+        return shop_id_resolver(org, user_object, request)
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed to resolve shop_id for user %s", user_object.email)
+        return None
+
+
+def create_and_login_user(org, name, email, picture=None, auth_context=None):
     try:
         user_object = models.User.get_by_email_and_org(email, org)
         if user_object.is_disabled:
@@ -292,6 +314,14 @@ def create_and_login_user(org, name, email, picture=None):
         )
         models.db.session.add(user_object)
         models.db.session.commit()
+
+    shop_id = _resolve_user_shop_id(org, user_object, auth_context)
+    if shop_id is not None:
+        details = user_object.details or {}
+        if details.get("shop_id") != shop_id:
+            details["shop_id"] = shop_id
+            user_object.details = details
+            models.db.session.commit()
 
     login_user(user_object, remember=True)
 
