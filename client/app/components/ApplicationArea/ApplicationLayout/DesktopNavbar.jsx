@@ -17,6 +17,7 @@ import PlusOutlinedIcon from "@ant-design/icons/PlusOutlined";
 import QuestionCircleOutlinedIcon from "@ant-design/icons/QuestionCircleOutlined";
 import SettingOutlinedIcon from "@ant-design/icons/SettingOutlined";
 import VersionInfo from "./VersionInfo";
+import packageJson from "../../../../../package.json";
 
 import "./DesktopNavbar.less";
 
@@ -70,6 +71,7 @@ export default function DesktopNavbar() {
   const canCreateQuery = currentUser.hasPermission("create_query");
   const canCreateDashboard = currentUser.hasPermission("create_dashboard");
   const canCreateAlert = currentUser.hasPermission("list_alerts");
+  const packageVersion = packageJson.version;
 
   return (
     <nav className="desktop-navbar">
@@ -193,6 +195,10 @@ export default function DesktopNavbar() {
           </Menu.Item>
         </Menu.SubMenu>
       </NavbarSection>
+
+      <div className="desktop-navbar-version" data-test="DesktopNavbarVersion">
+        v{packageVersion}
+      </div>
     </nav>
   );
 }
