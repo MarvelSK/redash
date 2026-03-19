@@ -51,6 +51,33 @@ function applyParameterPermissions(param, permissionsMap = {}, userGroupIds = []
     return;
   }
 
+  const groupValueOverrides = _.isArray(rule.groupValueOverrides)
+    ? _.filter(rule.groupValueOverrides, (override) => _.isObject(override) && _.has(override, "groupId"))
+    : [];
+  const matchingGroupOverride = _.find(groupValueOverrides, (override) =>
+    hasAnyGroupIntersection([override.groupId], userGroupIds)
+  );
+
+  if (_.isObject(matchingGroupOverride)) {
+    const hasOverrideValue =
+      Object.prototype.hasOwnProperty.call(matchingGroupOverride, "fixedValue") &&
+      matchingGroupOverride.fixedValue !== null;
+
+    if (hasOverrideValue) {
+      param.setValue(matchingGroupOverride.fixedValue);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(matchingGroupOverride, "canEdit")) {
+      param.isReadonly = !matchingGroupOverride.canEdit;
+      return;
+    }
+
+    if (hasOverrideValue) {
+      param.isReadonly = true;
+      return;
+    }
+  }
+
   const editableByGroups = _.isArray(rule.editableByGroups) ? rule.editableByGroups : [];
   const fixedValueGroupIds = _.isArray(rule.fixedValueGroupIds) ? rule.fixedValueGroupIds : [];
   const hasFixedValue =

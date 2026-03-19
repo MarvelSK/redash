@@ -52,6 +52,14 @@ function normalizeGroupIds(groupIds) {
   return map(groupIds, id => Number(id));
 }
 
+function normalizeGroupId(groupId) {
+  if (groupId === null || groupId === undefined || groupId === "") {
+    return null;
+  }
+
+  return Number(groupId);
+}
+
 function DashboardSettings({ dashboardConfiguration, globalParameters }) {
   const { dashboard, updateDashboard } = dashboardConfiguration;
   const [groups, setGroups] = useState([]);
@@ -79,6 +87,34 @@ function DashboardSettings({ dashboardConfiguration, globalParameters }) {
     });
   };
 
+  const updateGroupOverride = (parameterName, index, patch) => {
+    const rule = parameterPermissions[parameterName] || {};
+    const currentOverrides = Array.isArray(rule.groupValueOverrides) ? rule.groupValueOverrides : [];
+    const updatedOverrides = currentOverrides.map((override, currentIndex) =>
+      currentIndex === index ? { ...override, ...patch } : override
+    );
+
+    updateParameterPermission(parameterName, { groupValueOverrides: updatedOverrides });
+  };
+
+  const addGroupOverride = parameterName => {
+    const rule = parameterPermissions[parameterName] || {};
+    const currentOverrides = Array.isArray(rule.groupValueOverrides) ? rule.groupValueOverrides : [];
+
+    updateParameterPermission(parameterName, {
+      groupValueOverrides: [...currentOverrides, { groupId: null, fixedValue: null, canEdit: false }],
+    });
+  };
+
+  const removeGroupOverride = (parameterName, index) => {
+    const rule = parameterPermissions[parameterName] || {};
+    const currentOverrides = Array.isArray(rule.groupValueOverrides) ? rule.groupValueOverrides : [];
+
+    updateParameterPermission(parameterName, {
+      groupValueOverrides: currentOverrides.filter((_, currentIndex) => currentIndex !== index),
+    });
+  };
+
   return (
     <div className="m-b-10 p-15 bg-white tiled">
       <Checkbox
@@ -94,6 +130,7 @@ function DashboardSettings({ dashboardConfiguration, globalParameters }) {
           <h4 className="m-b-15">Parameter Access Rules</h4>
           {map(globalParameters, param => {
             const rule = parameterPermissions[param.name] || {};
+            const groupValueOverrides = Array.isArray(rule.groupValueOverrides) ? rule.groupValueOverrides : [];
 
             return (
               <div key={param.name} className="m-b-15 p-10" style={{ border: "1px solid #eaeaea" }}>
@@ -143,6 +180,54 @@ function DashboardSettings({ dashboardConfiguration, globalParameters }) {
                   }
                   placeholder={'Example: US or ["US","UK"]'}
                 />
+
+                <div className="m-t-15 m-b-5">
+                  <strong>Per-group value overrides</strong>
+                </div>
+
+                {map(groupValueOverrides, (override, index) => (
+                  <div key={`${param.name}-override-${index}`} className="m-b-10 p-10" style={{ border: "1px solid #f0f0f0" }}>
+                    <div className="m-b-5">Group</div>
+                    <Select
+                      value={override.groupId}
+                      style={{ width: "100%" }}
+                      placeholder="Select group"
+                      onChange={(value) =>
+                        updateGroupOverride(param.name, index, { groupId: normalizeGroupId(value) })
+                      }
+                    >
+                      {map(groups, group => (
+                        <Select.Option key={group.id} value={group.id}>
+                          {group.name}
+                        </Select.Option>
+                      ))}
+                    </Select>
+
+                    <div className="m-t-10 m-b-5">Fixed value for this group (plain text or JSON)</div>
+                    <Input
+                      value={stringifyFixedValue(override.fixedValue)}
+                      onChange={(event) =>
+                        updateGroupOverride(param.name, index, { fixedValue: parseFixedValue(event.target.value) })
+                      }
+                      placeholder={'Example: ZURICH or ["ZH","GE"]'}
+                    />
+
+                    <div className="m-t-10">
+                      <Checkbox
+                        checked={!!override.canEdit}
+                        onChange={({ target }) => updateGroupOverride(param.name, index, { canEdit: target.checked })}
+                      >
+                        This group can edit value
+                      </Checkbox>
+                    </div>
+
+                    <div className="m-t-10">
+                      <Button onClick={() => removeGroupOverride(param.name, index)}>Remove group override</Button>
+                    </div>
+                  </div>
+                ))}
+
+                <Button onClick={() => addGroupOverride(param.name)}>Add group override</Button>
               </div>
             );
           })}
