@@ -29,5 +29,9 @@ def dashboard(slug, org_slug=None):
 @routes.route(org_scoped_rule("/<path:path>"))
 @routes.route(org_scoped_rule("/"))
 @login_required
-def index(**kwargs):
+def index(path=None, **kwargs):
+    # Don't handle static file requests - let Flask serve them
+    if path and path.startswith("static/"):
+        from werkzeug.exceptions import NotFound
+        raise NotFound()
     return render_index()

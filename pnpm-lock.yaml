@@ -197,6 +197,9 @@ importers:
       copy-webpack-plugin:
         specifier: ^13.0.1
         version: 13.0.1(webpack@5.105.3)
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
       css-loader:
         specifier: ^7.1.4
         version: 7.1.4(webpack@5.105.3)
@@ -546,7 +549,7 @@ importers:
         version: 5.105.3(webpack-cli@6.0.1)
       webpack-cli:
         specifier: ^6.0.1
-        version: 6.0.1(webpack-bundle-analyzer@5.2.0)(webpack-dev-server@5.2.3)(webpack@5.105.3)
+        version: 6.0.1(webpack-bundle-analyzer@5.2.0)(webpack-dev-server@5.2.3(debug@3.2.7)(tslib@2.8.1)(webpack-cli@6.0.1)(webpack@5.105.3))(webpack@5.105.3)
 
 packages:
 
@@ -1405,6 +1408,9 @@ packages:
 
   '@emnapi/wasi-threads@1.1.0':
     resolution: {integrity: sha512-WI0DdZ8xFSbgMjR1sFsKABJ/C5OnRrjT06JXbZKexJGrDuPTzZdDYfFlsgcCXCyf+suG5QU2e/y1Wo2V/OapLQ==}
+
+  '@epic-web/invariant@1.0.0':
+    resolution: {integrity: sha512-lrTPqgvfFQtR/eY/qkIzp98OGdNJu0m5ji3q/nJI8v3SXkRKEnWiOxMmbvcSoAIzv/cGiuvRy57k4suKQSAdwA==}
 
   '@eslint-community/eslint-utils@4.9.1':
     resolution: {integrity: sha512-phrYmNiYppR7znFEdqgfWHXR6NCkZEK7hwWDHZUjit/2/U0r6XvkDl0SYnoM51Hq7FhCGdLDT6zxCCOY1hexsQ==}
@@ -3561,6 +3567,11 @@ packages:
 
   create-jest-runner@0.5.3:
     resolution: {integrity: sha512-a9VY2doMBmzRollJB3Ft3/Y5fBceSWJ4gdyVsg4/d7nP1S4715VG939s2VnITDj79YBmRgKhjGjNRv1c+Kre1g==}
+    hasBin: true
+
+  cross-env@10.1.0:
+    resolution: {integrity: sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==}
+    engines: {node: '>=20'}
     hasBin: true
 
   cross-spawn@6.0.6:
@@ -9766,6 +9777,8 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@epic-web/invariant@1.0.0': {}
+
   '@eslint-community/eslint-utils@4.9.1(eslint@8.57.1)':
     dependencies:
       eslint: 8.57.1
@@ -11343,6 +11356,13 @@ snapshots:
       webpack: 5.105.3(webpack-cli@6.0.1)
       webpack-cli: 6.0.1(webpack-bundle-analyzer@5.2.0)(webpack-dev-server@5.2.3)(webpack@5.105.3)
 
+  '@webpack-cli/serve@3.0.1(webpack-cli@6.0.1)(webpack-dev-server@5.2.3(debug@3.2.7)(tslib@2.8.1)(webpack-cli@6.0.1)(webpack@5.105.3))(webpack@5.105.3)':
+    dependencies:
+      webpack: 5.105.3(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack-bundle-analyzer@5.2.0)(webpack-dev-server@5.2.3(debug@3.2.7)(tslib@2.8.1)(webpack-cli@6.0.1)(webpack@5.105.3))(webpack@5.105.3)
+    optionalDependencies:
+      webpack-dev-server: 5.2.3(debug@3.2.7)(tslib@2.8.1)(webpack-cli@6.0.1)(webpack@5.105.3)
+
   '@webpack-cli/serve@3.0.1(webpack-cli@6.0.1)(webpack-dev-server@5.2.3)(webpack@5.105.3)':
     dependencies:
       webpack: 5.105.3(webpack-cli@6.0.1)
@@ -12550,6 +12570,11 @@ snapshots:
       chalk: 2.4.2
       jest-worker: 24.9.0
       throat: 4.1.0
+
+  cross-env@10.1.0:
+    dependencies:
+      '@epic-web/invariant': 1.0.0
+      cross-spawn: 7.0.6
 
   cross-spawn@6.0.6:
     dependencies:
@@ -18643,6 +18668,26 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  webpack-cli@6.0.1(webpack-bundle-analyzer@5.2.0)(webpack-dev-server@5.2.3(debug@3.2.7)(tslib@2.8.1)(webpack-cli@6.0.1)(webpack@5.105.3))(webpack@5.105.3):
+    dependencies:
+      '@discoveryjs/json-ext': 0.6.3
+      '@webpack-cli/configtest': 3.0.1(webpack-cli@6.0.1)(webpack@5.105.3)
+      '@webpack-cli/info': 3.0.1(webpack-cli@6.0.1)(webpack@5.105.3)
+      '@webpack-cli/serve': 3.0.1(webpack-cli@6.0.1)(webpack-dev-server@5.2.3(debug@3.2.7)(tslib@2.8.1)(webpack-cli@6.0.1)(webpack@5.105.3))(webpack@5.105.3)
+      colorette: 2.0.20
+      commander: 12.1.0
+      cross-spawn: 7.0.6
+      envinfo: 7.21.0
+      fastest-levenshtein: 1.0.16
+      import-local: 3.2.0
+      interpret: 3.1.1
+      rechoir: 0.8.0
+      webpack: 5.105.3(webpack-cli@6.0.1)
+      webpack-merge: 6.0.1
+    optionalDependencies:
+      webpack-bundle-analyzer: 5.2.0
+      webpack-dev-server: 5.2.3(debug@3.2.7)(tslib@2.8.1)(webpack-cli@6.0.1)(webpack@5.105.3)
 
   webpack-cli@6.0.1(webpack-bundle-analyzer@5.2.0)(webpack-dev-server@5.2.3)(webpack@5.105.3):
     dependencies:

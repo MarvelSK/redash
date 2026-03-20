@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-  <link rel="stylesheet" href="{{ asset_url('server.css') }}">
+  {% if asset_url_or_none is defined %}
+    {% set server_css_url = asset_url_or_none('server.css') %}
+    {% if server_css_url %}
+      <link rel="stylesheet" href="{{ server_css_url }}">
+    {% endif %}
+  {% endif %}
 
   <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="96x96" href="/static/images/favicon-96x96.png">
@@ -27,6 +32,8 @@
   </div>
 
 {% block scripts %}{% endblock %}
+
+<script defer src="{{ asset_url('server.js') }}"></script>
 
 {% include '_includes/signed_out_tail.html' %}
 
