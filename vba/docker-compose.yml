@@ -1,0 +1,95 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: people-counter-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: people_counter
+      MYSQL_USER: people_counter
+      MYSQL_PASSWORD: change_me
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-upeople_counter", "-pchange_me"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redash-postgres:
+    image: postgres:14
+    container_name: people-counter-redash-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: redash
+      POSTGRES_PASSWORD: redash
+      POSTGRES_DB: redash
+    volumes:
+      - redash_postgres_data:/var/lib/postgresql/data
+
+  redash-redis:
+    image: redis:7-alpine
+    container_name: people-counter-redash-redis
+    restart: unless-stopped
+
+  redash-server:
+    image: redash/redash:10.1.0.b50633
+    container_name: people-counter-redash-server
+    restart: unless-stopped
+    depends_on:
+      - redash-postgres
+      - redash-redis
+      - mysql
+    environment:
+      PYTHONUNBUFFERED: "0"
+      REDASH_LOG_LEVEL: INFO
+      REDASH_REDIS_URL: redis://redash-redis:6379/0
+      REDASH_DATABASE_URL: postgresql://redash:redash@redash-postgres/redash
+      REDASH_COOKIE_SECRET: people-counter-cookie-secret
+      REDASH_SECRET_KEY: people-counter-secret-key
+      REDASH_WEB_WORKERS: "2"
+    ports:
+      - "5001:5000"
+    command: server
+
+  redash-worker:
+    image: redash/redash:10.1.0.b50633
+    container_name: people-counter-redash-worker
+    restart: unless-stopped
+    depends_on:
+      - redash-postgres
+      - redash-redis
+      - redash-server
+    environment:
+      PYTHONUNBUFFERED: "0"
+      REDASH_LOG_LEVEL: INFO
+      REDASH_REDIS_URL: redis://redash-redis:6379/0
+      REDASH_DATABASE_URL: postgresql://redash:redash@redash-postgres/redash
+      REDASH_COOKIE_SECRET: people-counter-cookie-secret
+      REDASH_SECRET_KEY: people-counter-secret-key
+      QUEUES: queries,scheduled_queries,celery
+      WORKERS_COUNT: "2"
+    command: worker
+
+  redash-scheduler:
+    image: redash/redash:10.1.0.b50633
+    container_name: people-counter-redash-scheduler
+    restart: unless-stopped
+    depends_on:
+      - redash-postgres
+      - redash-redis
+      - redash-server
+    environment:
+      PYTHONUNBUFFERED: "0"
+      REDASH_LOG_LEVEL: INFO
+      REDASH_REDIS_URL: redis://redash-redis:6379/0
+      REDASH_DATABASE_URL: postgresql://redash:redash@redash-postgres/redash
+      REDASH_COOKIE_SECRET: people-counter-cookie-secret
+      REDASH_SECRET_KEY: people-counter-secret-key
+    command: scheduler
+
+volumes:
+  mysql_data:
+  redash_postgres_data:
