@@ -70,6 +70,7 @@ services:
       - "5173:5173"
     environment:
       VITE_REDASH_PROXY_TARGET: http://server:5000
+      VITE_ADMIN_PASSWORD: ${EMBED_ADMIN_PASSWORD:-redash-admin}
     depends_on:
       - server
     restart: unless-stopped
