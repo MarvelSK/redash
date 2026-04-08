@@ -1,5 +1,15 @@
 @import 'tailwindcss';
 
+:root {
+  --font-sans: 'Manrope', 'Segoe UI', sans-serif;
+  --color-bg: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+  --color-border: #cbd5e1;
+  --color-primary: #0284c7;
+}
+
 html,
 body,
 #root {
@@ -8,5 +18,39 @@ body,
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
+  background: radial-gradient(circle at 5% 0%, #e0f2fe 0, var(--color-bg) 45%);
+  color: var(--color-text);
+}
+
+.embed-sidebar .ant-input,
+.embed-sidebar .ant-input-number,
+.embed-sidebar .ant-picker,
+.embed-sidebar .ant-select-selector {
+  background: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text) !important;
+}
+
+.embed-sidebar .ant-picker input,
+.embed-sidebar .ant-select-selection-item,
+.embed-sidebar .ant-input {
+  color: var(--color-text) !important;
+}
+
+.embed-sidebar .ant-input::placeholder,
+.embed-sidebar .ant-picker-input input::placeholder {
+  color: var(--color-muted) !important;
+}
+
+.embed-sidebar .ant-picker-suffix,
+.embed-sidebar .ant-select-arrow,
+.embed-sidebar .ant-input-number-handler-wrap {
+  color: var(--color-muted) !important;
+}
+
+.embed-sidebar .ant-input-number,
+.embed-sidebar .ant-picker,
+.embed-sidebar .ant-select {
+  width: 100% !important;
 }

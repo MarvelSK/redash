@@ -1,0 +1,23 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: Deploy on production server
+    runs-on: self-hosted
+    # Runner registered at: https://github.com/kubjak/KPi_Dashboard
+
+    steps:
+      - name: Pull latest code
+        shell: powershell
+        run: git -C "${{ secrets.PROD_REPO_PATH }}" pull origin master
+
+      - name: Rebuild and restart containers
+        shell: powershell
+        run: |
+          Set-Location "${{ secrets.PROD_REPO_PATH }}"
+          docker compose up --build -d server scheduler worker

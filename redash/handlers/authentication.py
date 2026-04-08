@@ -190,25 +190,27 @@ def login(org_slug=None):
     if current_user.is_authenticated:
         return redirect(next_path)
 
-    password_setup_link = None
-    submitted_name = request.form.get("name", "")
+    submitted_email = request.form.get("email", "")
 
     if request.method == "POST" and current_org.get_setting("auth_password_login_enabled"):
         org = current_org._get_current_object()
-        normalized_name = models.User.normalize_login_name(submitted_name)
+        email = submitted_email.strip().lower()
+        password = request.form.get("password", "")
 
-        if not normalized_name:
-            flash("Please provide a name.")
+        if not email or not password:
+            flash("Please provide both email and password.")
         else:
-            matching_users = models.User.find_by_login_name_and_org(normalized_name, org).all()
-            active_users = [u for u in matching_users if not u.is_disabled]
-
-            if len(active_users) == 1:
-                password_setup_link = reset_link_for_user(active_users[0])
-            elif len(active_users) > 1:
-                flash("More than one account matches this name. Please contact your administrator.")
-            else:
-                flash("No active account was found for this name.")
+            try:
+                user = models.User.get_by_email_and_org(email, org)
+                if user.is_disabled:
+                    flash("Your account has been disabled. Please contact your administrator.")
+                elif not user.verify_password(password):
+                    flash("Incorrect email or password.")
+                else:
+                    login_user(user, remember=True)
+                    return redirect(next_path)
+            except NoResultFound:
+                flash("Incorrect email or password.")
     elif request.method == "POST" and not current_org.get_setting("auth_password_login_enabled"):
         flash("Password login is not enabled for your organization.")
 
@@ -218,8 +220,7 @@ def login(org_slug=None):
         "login.html",
         org_slug=org_slug,
         next=next_path,
-        name=submitted_name,
-        password_setup_link=password_setup_link,
+        submitted_email=submitted_email,
         show_google_openid=settings.GOOGLE_OAUTH_ENABLED,
         google_auth_url=google_auth_url,
         show_password_login=current_org.get_setting("auth_password_login_enabled"),

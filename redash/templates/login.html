@@ -39,20 +39,18 @@
 
     <form role="form" method="post" name="login">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <input type="hidden" name="next" value="{{ next }}">
       <div class="form-group">
-        <label for="inputName">Name</label>
-        <input type="text" class="form-control" id="inputName" name="name" value="{{name}}" data-test="Name">
+        <label for="inputEmail">Email</label>
+        <input type="email" class="form-control" id="inputEmail" name="email" value="{{ submitted_email }}" placeholder="email@example.com" data-test="Email" autofocus>
+      </div>
+      <div class="form-group">
+        <label for="inputPassword">Password</label>
+        <input type="password" class="form-control" id="inputPassword" name="password" placeholder="Password" data-test="Password">
       </div>
 
-      <button type="submit" class="btn btn-primary btn-block m-t-25">Generate Password Setup Link</button>
+      <button type="submit" class="btn btn-primary btn-block m-t-25">Login</button>
     </form>
-
-    {% if password_setup_link %}
-      <div class="alert alert-success m-t-25" role="alert" data-test="PasswordSetupLink">
-        <p class="m-b-10">Use this link to set your password and sign in:</p>
-        <input type="text" class="form-control" readonly value="{{ password_setup_link }}">
-      </div>
-    {% endif %}
 
     {% if not hide_forgot_password %}
       <div class="m-t-25">

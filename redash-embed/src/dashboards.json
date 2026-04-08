@@ -1,52 +1,75 @@
 {
   "default": {
     "title": "Company Overview",
-    "url": "http://localhost:5001/public/dashboards/uMOcMqcFODEjjlC4SoYMrJLgQuwYO4iLHBaLKSLl?org_slug=default",
-    "params": "p_date_from=2026-03-03&p_date_to=2026-03-19&p_shop_id=ZURICH",
-    "hideParameters": true,
-    "topCropPx": 130,
-    "parameterControls": [
+    "password": null,
+    "defaultLanguage": "en",
+    "tabs": [
       {
-        "name": "date_from",
-        "label": "date_from",
-        "type": "date",
-        "defaultValue": "2026-03-03",
-        "locked": false
-      },
-      {
-        "name": "date_to",
-        "label": "date_to",
-        "type": "date",
-        "defaultValue": "2026-03-19",
-        "locked": false
-      },
-      {
-        "name": "shop_id",
-        "label": "shop_id",
-        "type": "select",
-        "defaultValue": "ZURICH",
-        "locked": true,
-        "options": [
+        "id": "overview",
+        "label": "Overview",
+        "hideParameters": true,
+        "refreshIntervalSeconds": 0,
+        "parameterControls": [
           {
-            "label": "ZURICH",
-            "value": "ZURICH"
+            "name": "date_from",
+            "label": "From",
+            "type": "date",
+            "defaultValue": "2026-03-03",
+            "locked": false
+          },
+          {
+            "name": "date_to",
+            "label": "To",
+            "type": "date",
+            "defaultValue": "2026-03-19",
+            "locked": false
+          },
+          {
+            "name": "shop_id",
+            "label": "Shop",
+            "type": "select",
+            "defaultValue": "ZURICH",
+            "locked": true,
+            "options": [
+              { "label": "ZURICH", "value": "ZURICH" }
+            ]
           }
-        ]
+        ],
+        "queryExecution": {
+          "queryId": 2,
+          "applyAutoLimit": true,
+          "maxAge": 0,
+          "apiBaseUrl": "http://localhost:5001",
+          "includeCredentials": true
+        },
+        "languages": {
+          "en": {
+            "url": "http://localhost:5001/public/dashboards/uMOcMqcFODEjjlC4SoYMrJLgQuwYO4iLHBaLKSLl?org_slug=default",
+            "params": "p_date_from=2026-03-03&p_date_to=2026-03-19&p_shop_id=ZURICH"
+          }
+        }
       }
-    ],
-    "queryExecution": {
-      "queryId": 2,
-      "applyAutoLimit": true,
-      "maxAge": 0,
-      "apiBaseUrl": "http://localhost:5001",
-      "includeCredentials": true
-    }
+    ]
   },
   "finance": {
     "title": "Finance Dashboard",
-    "url": "https://app.redash.io/public/dashboards/finance-dashboard-slug",
-    "params": "p_from=2026-01-01&p_to=2026-01-31",
-    "hideParameters": true,
-    "topCropPx": 130
+    "password": null,
+    "defaultLanguage": "en",
+    "tabs": [
+      {
+        "id": "main",
+        "label": "Overview",
+        "hideParameters": true,
+        "refreshIntervalSeconds": 0,
+        "parameterControls": [],
+        "queryExecution": null,
+        "languages": {
+          "en": {
+            "url": "https://app.redash.io/public/dashboards/finance-dashboard-slug",
+            "params": "p_from=2026-01-01&p_to=2026-01-31"
+          }
+        }
+      }
+    ]
   }
 }
