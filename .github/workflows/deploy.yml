@@ -1,0 +1,20 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: Deploy on production server
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull latest code
+        run: git -C ${{ secrets.PROD_REPO_PATH }} pull origin master
+
+      - name: Rebuild and restart containers
+        run: |
+          cd ${{ secrets.PROD_REPO_PATH }}
+          docker compose up --build -d server scheduler worker
