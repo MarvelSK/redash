@@ -87,7 +87,23 @@ function toHumanLabel(name: string): string {
 
 function buildPublicUrl(endpointRoot: string, publicUrl?: string): string {
   if (!publicUrl) return ''
-  if (publicUrl.startsWith('http://') || publicUrl.startsWith('https://')) return publicUrl
+
+  // If publicUrl is absolute, try to replace the origin with endpointRoot origin
+  // (handles cases where Redash returns internal Docker URLs like http://server:5000/...)
+  if (publicUrl.startsWith('http://') || publicUrl.startsWith('https://')) {
+    if (endpointRoot.startsWith('http')) {
+      try {
+        const internalOrigin = new URL(publicUrl).origin
+        const externalOrigin = new URL(endpointRoot).origin
+        if (internalOrigin !== externalOrigin) {
+          return publicUrl.replace(internalOrigin, externalOrigin)
+        }
+      } catch {
+        // fallthrough
+      }
+    }
+    return publicUrl
+  }
 
   // If endpointRoot is a proxy path (/redash-api), we cannot infer public origin safely.
   if (!endpointRoot.startsWith('http')) return ''
