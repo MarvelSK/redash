@@ -12,9 +12,11 @@ jobs:
 
     steps:
       - name: Pull latest code
-        run: git -C ${{ secrets.PROD_REPO_PATH }} pull origin master
+        shell: powershell
+        run: git -C "${{ secrets.PROD_REPO_PATH }}" pull origin master
 
       - name: Rebuild and restart containers
+        shell: powershell
         run: |
-          cd ${{ secrets.PROD_REPO_PATH }}
+          Set-Location "${{ secrets.PROD_REPO_PATH }}"
           docker compose up --build -d server scheduler worker
