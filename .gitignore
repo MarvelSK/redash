@@ -22,6 +22,7 @@ _build
 dump.rdb
 
 node_modules
+.pnpm-store
 .tmp
 .sass-cache
 npm-debug.log

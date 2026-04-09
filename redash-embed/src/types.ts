@@ -51,6 +51,11 @@ export interface DashboardConfig {
   tabs: TabConfig[]
 }
 
+export interface StoreConfig {
+  id: string
+  name: string
+}
+
 /** Top-level map of slug → dashboard */
 export type DashboardsMap = Record<string, DashboardConfig>
 

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import type { DashboardsMap, DashboardConfig } from '../../types'
+import type { DashboardsMap, DashboardConfig, StoreConfig } from '../../types'
 import {
   buildExecutionPayload,
   buildExecutionUrl,
@@ -11,7 +11,7 @@ import {
 } from '../../lib/params'
 import { buildIframeUrl, discoverParamsUsingApi, getCookieValue } from '../../lib/iframe.ts'
 import { getAvailableLanguages, normalizeDashboard, resolveTab } from '../../lib/storage'
-import { SYSTEM_PARAM_KEYS } from '../../constants'
+import { HOME_DASHBOARD_STORAGE_KEY, SYSTEM_PARAM_KEYS } from '../../constants'
 import {
   APP_LOCALES,
   getStrings,
@@ -29,9 +29,10 @@ const DashboardSidebar = lazy(async () => {
 
 interface EmbeddedDashboardProps {
   dashboards: DashboardsMap
+  stores: StoreConfig[]
 }
 
-export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
+export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const pollAbortRef = useRef<AbortController | null>(null)
   const hideObserverRef = useRef<MutationObserver | null>(null)
@@ -40,7 +41,9 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
 
   const pathname = window.location.pathname.replace(/\/+$/, '')
   const segments = pathname.split('/').filter(Boolean)
-  const slug = segments.length > 0 ? decodeURIComponent(segments[segments.length - 1]) : 'default'
+  const homeSlug = window.localStorage.getItem(HOME_DASHBOARD_STORAGE_KEY) || ''
+  const slug =
+    segments.length > 0 ? decodeURIComponent(segments[segments.length - 1]) : homeSlug || 'default'
   const rawDashboard = dashboards[slug] || dashboards.default || Object.values(dashboards)[0] || null
   const dashboard: DashboardConfig | null = rawDashboard ? normalizeDashboard(rawDashboard) : null
 
@@ -93,13 +96,13 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
     getInitialParams(config, configuredControls),
   )
   const [iframeSrc, setIframeSrc] = useState(iframeUrl)
-  const [sidebarOpen, setSidebarOpen] = useState(() => configuredControls.length > 0)
   const [loadStatus, setLoadStatus] = useState('')
   const [refreshCountdown, setRefreshCountdown] = useState<number | null>(null)
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
   const [toastMessage, setToastMessage] = useState('')
   const [isIframeModalOpen, setIsIframeModalOpen] = useState(false)
   const topCropPx = config?.hideParameters && !isIframeModalOpen ? 155 : 0
+  const isPublicDashboardUrl = (config?.url || '').includes('/public/dashboards/')
+  const bottomCropPx = isPublicDashboardUrl ? 95 : 0
 
   const areParamsEqual = (a: Record<string, string>, b: Record<string, string>) => {
     const aKeys = Object.keys(a)
@@ -110,14 +113,6 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
     }
     return true
   }
-
-  useEffect(() => {
-    const mql = window.matchMedia('(max-width: 767px)')
-    const onChange = () => setIsMobile(mql.matches)
-    onChange()
-    mql.addEventListener('change', onChange)
-    return () => mql.removeEventListener('change', onChange)
-  }, [])
 
   useEffect(() => {
     if (!toastMessage) return
@@ -182,7 +177,10 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
       .parameter-container,
       .parameter-apply-button,
       .m-b-10.p-15.bg-white.tiled,
-      .page-header-wrapper {
+      .page-header-wrapper,
+      .public-dashboard-page #footer,
+      #footer,
+      footer {
         display: none !important;
       }
     `
@@ -192,6 +190,9 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
       '.parameter-container',
       '.parameter-apply-button',
       '.page-header-wrapper',
+      '.public-dashboard-page #footer',
+      '#footer',
+      'footer',
     ]
 
     selectors.forEach((selector) => {
@@ -259,7 +260,6 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
       )
       const nextParams = { ...loaded, ...discovered }
       setActiveParams((prev) => (areParamsEqual(prev, nextParams) ? prev : nextParams))
-      setSidebarOpen((prev) => (prev ? prev : true))
       setLoadStatus(`Loaded params from ${apiResult.source}.`)
       return
     }
@@ -307,7 +307,6 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
     }
 
     setActiveParams((prev) => (areParamsEqual(prev, loaded) ? prev : loaded))
-    setSidebarOpen((prev) => (prev ? prev : true))
   }
 
   const updateParam = (key: string, value: string) => {
@@ -409,54 +408,27 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
   }
 
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-slate-100 text-slate-900">
-      {isMobile && sidebarOpen ? (
-        <button
-          type="button"
-          aria-label="Close sidebar"
-          className="absolute inset-0 z-20 bg-slate-900/35"
-          onClick={() => setSidebarOpen(false)}
+    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-slate-100 text-slate-900">
+      <Suspense fallback={<div className="h-11 border-b border-slate-200 bg-white" />}>
+        <DashboardSidebar
+          dashboard={dashboard}
+          stores={stores}
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSelectTab={setActiveTabId}
+          availableLanguages={availableLanguages}
+          locale={locale}
+          onLocaleChange={handleLocaleChange}
+          configuredControls={configuredControls}
+          activeParams={activeParams}
+          updateParam={updateParam}
+          onApplyAndRunQuery={applyAndRunQuery}
+          loadStatus={loadStatus}
+          refreshCountdown={refreshCountdown}
         />
-      ) : null}
+      </Suspense>
 
-      {isMobile && !sidebarOpen ? (
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(true)}
-          className="absolute left-3 top-3 z-20 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow"
-        >
-          Filters
-        </button>
-      ) : null}
-
-      <div
-        className={
-          isMobile ? 'absolute left-0 top-0 z-30 h-full' : 'relative z-10 h-full flex-none'
-        }
-      >
-        <Suspense fallback={<div className="w-10" />}>
-          <DashboardSidebar
-            sidebarOpen={sidebarOpen}
-            onToggleSidebar={setSidebarOpen}
-            dashboard={dashboard}
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onSelectTab={setActiveTabId}
-            availableLanguages={availableLanguages}
-            locale={locale}
-            onLocaleChange={handleLocaleChange}
-            configuredControls={configuredControls}
-            activeParams={activeParams}
-            updateParam={updateParam}
-            onApplyAndRunQuery={applyAndRunQuery}
-            loadStatus={loadStatus}
-            refreshCountdown={refreshCountdown}
-            isMobile={isMobile}
-          />
-        </Suspense>
-      </div>
-
-      <div className="flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {toastMessage ? (
           <div className="pointer-events-none absolute right-3 top-3 z-40 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm">
             {toastMessage}
@@ -471,9 +443,9 @@ export function EmbeddedDashboard({ dashboards }: EmbeddedDashboardProps) {
             onLoad={tryHideElementsInsideIframe}
             className="w-full border-0"
             style={
-              topCropPx > 0
+              topCropPx > 0 || bottomCropPx > 0
                 ? {
-                    height: `calc(100% + ${topCropPx}px)`,
+                    height: `calc(100% + ${topCropPx + bottomCropPx}px)`,
                     transform: `translateY(-${topCropPx}px)`,
                   }
                 : { height: '100%' }

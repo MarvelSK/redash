@@ -56,6 +56,16 @@ export type ImportResult = {
   changes: ImportChange[]
 }
 
+class RedashApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'RedashApiError'
+    this.status = status
+  }
+}
+
 function buildEndpoint(root: string, path: string, orgSlug?: string): string {
   const base = root.replace(/\/$/, '')
   const route = path.startsWith('/') ? path : `/${path}`
@@ -297,7 +307,7 @@ async function fetchJson<T>(url: string, apiKey: string): Promise<T> {
 
   if (!response.ok) {
     const text = await response.text()
-    throw new Error(`Redash API ${response.status}: ${text || response.statusText}`)
+    throw new RedashApiError(response.status, `Redash API ${response.status}: ${text || response.statusText}`)
   }
 
   return (await response.json()) as T
@@ -335,10 +345,29 @@ export async function importDashboardsFromRedash(
 
     const detailUrl = buildEndpoint(
       options.endpointRoot,
-      `/api/dashboards/${item.slug}?legacy=1`,
+      `/api/dashboards/${encodeURIComponent(item.slug)}?legacy=1`,
       options.orgSlug,
     )
-    const details = await fetchJson<RedashDashboardDetails>(detailUrl, options.apiKey)
+    let details: RedashDashboardDetails
+    try {
+      details = await fetchJson<RedashDashboardDetails>(detailUrl, options.apiKey)
+    } catch (error) {
+      const reason =
+        error instanceof RedashApiError
+          ? `Detail fetch failed (${error.status})`
+          : error instanceof Error
+            ? `Detail fetch failed (${error.message})`
+            : 'Detail fetch failed'
+
+      skipped.push(item.slug)
+      changes.push({
+        slug: item.slug,
+        action: 'skip',
+        reason,
+        missingLanguageUrls: 0,
+      })
+      continue
+    }
 
     const mapped = mapDashboardToEmbedConfig(item, details, options)
     const current = merged[mapped.slug]
