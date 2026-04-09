@@ -38,6 +38,8 @@ export function DashboardSidebar({
   refreshCountdown,
 }: DashboardSidebarProps) {
   const { RangePicker } = DatePicker
+  const DATE_DISPLAY_FORMAT = 'DD.MM.YYYY'
+  const DATE_PARAM_FORMAT = 'YYYY-MM-DD'
   const t = getStrings(locale)
 
   const compactLabel = (label: string) =>
@@ -135,7 +137,7 @@ export function DashboardSidebar({
                   return (
                     <div
                       key={control.id}
-                      className="w-[176px] min-w-[158px] rounded-md border border-slate-200 bg-slate-50/90 px-1.5 py-1"
+                      className="w-[138px] min-w-[126px] rounded-md border border-slate-200 bg-slate-50/90 px-1.5 py-1"
                     >
                       <p
                         className="mb-0.5 flex items-center gap-1 truncate text-[9px] font-semibold uppercase tracking-[0.04em] text-slate-500"
@@ -148,6 +150,8 @@ export function DashboardSidebar({
                         <RangePicker
                           className="w-full [&_.ant-picker-input>input]:text-xs [&_.ant-picker-input>input]:font-medium"
                           size="small"
+                          format={DATE_DISPLAY_FORMAT}
+                          inputReadOnly
                           disabled={control.locked}
                           allowEmpty={[true, true]}
                           value={[
@@ -158,23 +162,26 @@ export function DashboardSidebar({
                               ? dayjs(activeParams[`${control.urlKey}.end`])
                               : null,
                           ]}
-                          onChange={(_, dateStrings) => {
-                            updateParam(`${control.urlKey}.start`, dateStrings[0] || '')
-                            updateParam(`${control.urlKey}.end`, dateStrings[1] || '')
+                          onChange={(dates) => {
+                            updateParam(
+                              `${control.urlKey}.start`,
+                              dates?.[0] ? dates[0].format(DATE_PARAM_FORMAT) : '',
+                            )
+                            updateParam(
+                              `${control.urlKey}.end`,
+                              dates?.[1] ? dates[1].format(DATE_PARAM_FORMAT) : '',
+                            )
                           }}
                         />
                       ) : control.type === 'date' ? (
                         <DatePicker
                           className="w-full [&_.ant-picker-input>input]:text-xs [&_.ant-picker-input>input]:font-medium"
                           size="small"
+                          format={DATE_DISPLAY_FORMAT}
+                          inputReadOnly
                           disabled={control.locked}
                           value={value ? dayjs(value) : null}
-                          onChange={(_, dateString) =>
-                            updateParam(
-                              control.urlKey,
-                              typeof dateString === 'string' ? dateString : dateString[0] || '',
-                            )
-                          }
+                          onChange={(date) => updateParam(control.urlKey, date ? date.format(DATE_PARAM_FORMAT) : '')}
                         />
                       ) : isShopIdControl(control) ? (
                         <Select
