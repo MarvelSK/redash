@@ -136,6 +136,12 @@ def is_probable_age_bucket(label: str) -> bool:
     if not normalized:
         return False
 
+    # Never treat time/date labels as age buckets.
+    if ":" in normalized:
+        return False
+    if re.search(r"\b\d{1,2}/\d{1,2}\b", normalized):
+        return False
+
     # Skip obvious non-age rows.
     if normalized in {"mannlich", "weiblich", "nicht erkannt", "gesamt", "summe", "total"}:
         return False
@@ -149,11 +155,11 @@ def is_probable_age_bucket(label: str) -> bool:
     if any(token in normalized for token in ("jugend", "kinder", "senior", "alter", "teen")):
         return True
 
-    if re.match(r"^\d+\s*[-|/]\s*\d+\+?$", normalized) or re.match(r"^\d+\+$", normalized):
+    if re.match(r"^\d+\s*-\s*\d+\+?$", normalized) or re.match(r"^\d+\+$", normalized):
         return True
 
-    # Accept labels like "15-17 Jahre" or "0|15-17" by looking for range-like tokens.
-    if re.search(r"\d+\s*[-|/]\s*\d+", normalized):
+    # Accept labels like "15-17 Jahre" by looking for range-like tokens.
+    if re.search(r"\d+\s*-\s*\d+", normalized):
         return True
 
     return False
