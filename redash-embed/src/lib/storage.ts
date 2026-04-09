@@ -1,4 +1,3 @@
-import { STORAGE_KEY } from '../constants'
 import type { DashboardConfig, DashboardsMap, ResolvedTab, TabConfig } from '../types'
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -74,13 +73,3 @@ export function getAvailableLanguages(dashboard: DashboardConfig | null): string
   return [...langs]
 }
 
-export function loadDashboardsFromStorage(): DashboardsMap | null {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const parsed: unknown = JSON.parse(raw)
-    return isObject(parsed) ? normalizeDashboards(parsed) : null
-  } catch {
-    return null
-  }
-}

@@ -54,6 +54,12 @@ export interface DashboardConfig {
 export interface StoreConfig {
   id: string
   name: string
+  accessCode?: string
+}
+
+export interface EmbedAccessSession {
+  role: 'admin' | 'store'
+  storeId?: string
 }
 
 /** Top-level map of slug → dashboard */

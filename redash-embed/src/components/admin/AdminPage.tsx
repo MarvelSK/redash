@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { ADMIN_PASSWORD, HOME_DASHBOARD_STORAGE_KEY } from '../../constants'
 import { emptyDashboard, slugify } from '../../lib/admin-defaults'
 import { importDashboardsFromRedash, type ImportChange } from '../../lib/redash-import'
 import type { DashboardConfig, DashboardsMap, StoreConfig } from '../../types'
@@ -9,8 +8,9 @@ import { AdminDashboardEditor } from './AdminDashboardEditor'
 interface AdminPageProps {
   dashboards: DashboardsMap
   stores: StoreConfig[]
-  onSave: (dashboards: DashboardsMap) => void
-  onSaveStores: (stores: StoreConfig[]) => void
+  homeDashboardSlug: string
+  adminCode: string
+  onSave: (dashboards: DashboardsMap, stores: StoreConfig[], homeDashboardSlug: string, adminCode: string) => Promise<void>
 }
 
 type Section = 'dashboards' | 'builder' | 'stores' | 'system'
@@ -40,9 +40,7 @@ function inputCls() {
   return 'rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20'
 }
 
-export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPageProps) {
-  const [authed, setAuthed] = useState(false)
-  const [password, setPassword] = useState('')
+export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, onSave }: AdminPageProps) {
   const [error, setError] = useState('')
   const [view, setView] = useState<'list' | 'edit'>('list')
   const [editingSlug, setEditingSlug] = useState<string | null>(null)
@@ -51,6 +49,7 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
   const [builderSearch, setBuilderSearch] = useState('')
 
   const [importBusy, setImportBusy] = useState(false)
+  const [savingBusy, setSavingBusy] = useState(false)
   const [importMessage, setImportMessage] = useState('')
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [apiRoot, setApiRoot] = useState(
@@ -66,26 +65,132 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
 
   const [newStoreId, setNewStoreId] = useState('')
   const [newStoreName, setNewStoreName] = useState('')
+  const [newStoreCode, setNewStoreCode] = useState('')
+  const [editableStores, setEditableStores] = useState<StoreConfig[]>(stores)
+  const [editableDashboards, setEditableDashboards] = useState<DashboardsMap>(dashboards)
+  const [editableHomeSlug, setEditableHomeSlug] = useState(homeDashboardSlug)
+  const [editableAdminCode, setEditableAdminCode] = useState(adminCode)
+  const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const lastSavedSnapshotRef = useRef('')
+  const autoSaveTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    setEditableStores(stores)
+  }, [stores])
+
+  useEffect(() => {
+    setEditableDashboards(dashboards)
+  }, [dashboards])
+
+  useEffect(() => {
+    setEditableHomeSlug(homeDashboardSlug)
+  }, [homeDashboardSlug])
+
+  useEffect(() => {
+    setEditableAdminCode(adminCode)
+  }, [adminCode])
+
+  useEffect(() => {
+    lastSavedSnapshotRef.current = JSON.stringify({
+      dashboards,
+      stores,
+      homeDashboardSlug,
+      adminCode,
+    })
+  }, [dashboards, stores, homeDashboardSlug, adminCode])
+
+  const currentSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        dashboards: editableDashboards,
+        stores: editableStores,
+        homeDashboardSlug: editableHomeSlug,
+        adminCode: editableAdminCode,
+      }),
+    [editableDashboards, editableStores, editableHomeSlug, editableAdminCode],
+  )
+
+  const hasValidCodes = useMemo(() => {
+    if (!/^\d{4}$/.test(editableAdminCode.trim())) return false
+    return editableStores.every((row) => /^\d{4}$/.test(String(row.accessCode || '').trim()))
+  }, [editableAdminCode, editableStores])
 
   const dashboardRows = useMemo<DashboardRow[]>(
     () =>
-      Object.entries(dashboards).map(([slug, dash]) => ({
+      Object.entries(editableDashboards).map(([slug, dash]) => ({
         slug,
         title: dash.title || slug,
         tabCount: dash.tabs?.length || 0,
         isPublic: !dash.password,
         missingLanguageUrls: countMissingLanguageUrls(dash),
       })),
-    [dashboards],
+    [editableDashboards],
   )
 
   const dashboardSlugs = useMemo(() => dashboardRows.map((row) => row.slug), [dashboardRows])
 
-  const [homeDashboardSlug, setHomeDashboardSlug] = useState<string>(() => {
-    const saved = window.localStorage.getItem(HOME_DASHBOARD_STORAGE_KEY) || ''
-    if (saved && dashboards[saved]) return saved
-    return Object.keys(dashboards)[0] || ''
-  })
+  const persistAdminConfig = async (
+    nextDashboards: DashboardsMap,
+    nextStores: StoreConfig[],
+    nextHomeSlug: string,
+    nextAdminCode: string,
+  ) => {
+    setSavingBusy(true)
+    setError('')
+    try {
+      await onSave(nextDashboards, nextStores, nextHomeSlug, nextAdminCode)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Saving changes failed.'
+      setError(message)
+      throw e
+    } finally {
+      setSavingBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!hasValidCodes) return
+    if (currentSnapshot === lastSavedSnapshotRef.current) return
+    if (savingBusy) return
+
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current)
+      autoSaveTimerRef.current = null
+    }
+
+    setAutoSaveState('idle')
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      setAutoSaveState('saving')
+      void persistAdminConfig(
+        editableDashboards,
+        editableStores,
+        editableHomeSlug,
+        editableAdminCode,
+      )
+        .then(() => {
+          lastSavedSnapshotRef.current = currentSnapshot
+          setAutoSaveState('saved')
+        })
+        .catch(() => {
+          setAutoSaveState('error')
+        })
+    }, 700)
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        window.clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = null
+      }
+    }
+  }, [
+    hasValidCodes,
+    currentSnapshot,
+    savingBusy,
+    editableDashboards,
+    editableStores,
+    editableHomeSlug,
+    editableAdminCode,
+  ])
 
   const filteredDashboards = useMemo(() => {
     const q = dashboardSearch.trim().toLowerCase()
@@ -111,35 +216,25 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
     setSection('builder')
   }
 
-  const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (password === ADMIN_PASSWORD) {
-      setAuthed(true)
-      setError('')
-    } else {
-      setError('Invalid password')
-    }
-  }
-
   const handleAdd = () => {
     const title = window.prompt('Dashboard title:')?.trim()
     if (!title) return
 
     const slug = slugify(title)
-    if (dashboards[slug]) {
+    if (editableDashboards[slug]) {
       setError(`Slug "${slug}" already exists. Choose a different title.`)
       return
     }
 
-    const next = { ...dashboards, [slug]: { ...emptyDashboard(), title } }
-    onSave(next)
+    const next = { ...editableDashboards, [slug]: { ...emptyDashboard(), title } }
+    setEditableDashboards(next)
     openEditor(slug)
   }
 
   const handleDelete = (slug: string) => {
-    const next = { ...dashboards }
+    const next = { ...editableDashboards }
     delete next[slug]
-    onSave(next)
+    setEditableDashboards(next)
     if (editingSlug === slug) {
       setEditingSlug(null)
       setView('list')
@@ -147,8 +242,8 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
   }
 
   const handleSaveDashboard = (slug: string, updated: DashboardConfig) => {
-    const next = { ...dashboards, [slug]: updated }
-    onSave(next)
+    const next = { ...editableDashboards, [slug]: updated }
+    setEditableDashboards(next)
     setView('list')
     setEditingSlug(null)
     setSection('dashboards')
@@ -165,29 +260,35 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
       setError('Store name is required.')
       return
     }
-    if (stores.some((row) => row.id.toLowerCase() === id.toLowerCase())) {
+    if (editableStores.some((row) => row.id.toLowerCase() === id.toLowerCase())) {
       setError(`Store ID "${id}" already exists.`)
       return
     }
+    if (!/^\d{4}$/.test(newStoreCode.trim())) {
+      setError('Store code must contain exactly 4 digits.')
+      return
+    }
 
-    onSaveStores([...stores, { id, name }])
+    setEditableStores([...editableStores, { id, name, accessCode: newStoreCode.trim() }])
     setNewStoreId('')
     setNewStoreName('')
+    setNewStoreCode('')
     setError('')
     setToast({ type: 'success', message: `Store ${id} added.` })
   }
 
   const handleDeleteStore = (id: string) => {
-    onSaveStores(stores.filter((row) => row.id !== id))
+    setEditableStores(editableStores.filter((row) => row.id !== id))
     setToast({ type: 'success', message: `Store ${id} removed.` })
   }
 
   const handleUpdateStore = (id: string, updates: Partial<StoreConfig>) => {
-    const next = stores.map((row) => {
+    const next = editableStores.map((row) => {
       if (row.id !== id) return row
       return {
         id: updates.id ?? row.id,
         name: updates.name ?? row.name,
+        accessCode: updates.accessCode ?? row.accessCode,
       }
     })
 
@@ -202,11 +303,15 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
         setError(`Duplicate store ID found: ${row.id}`)
         return
       }
+      if (!/^\d{4}$/.test(String(row.accessCode || '').trim())) {
+        setError(`Store ${row.id} must have exactly 4 digits.`)
+        return
+      }
       duplicate.add(key)
     }
 
     setError('')
-    onSaveStores(next)
+    setEditableStores(next)
   }
 
   const dashboardColumns = useMemo<ColumnDef<DashboardRow>[]>(
@@ -281,7 +386,7 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
         ),
       },
     ],
-    [dashboards, editingSlug],
+    [editingSlug],
   )
 
   const builderColumns = useMemo<ColumnDef<DashboardRow>[]>(
@@ -344,6 +449,18 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
         ),
       },
       {
+        accessorKey: 'accessCode',
+        header: 'Code',
+        cell: ({ row, getValue }) => (
+          <input
+            value={String(getValue() || '')}
+            onChange={(e) => handleUpdateStore(row.original.id, { accessCode: e.target.value.replace(/\D+/g, '').slice(0, 4) })}
+            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            placeholder="0000"
+          />
+        ),
+      },
+      {
         id: 'actions',
         header: 'Action',
         cell: ({ row }) => (
@@ -357,7 +474,7 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
         ),
       },
     ],
-    [stores],
+    [editableStores],
   )
 
   const importPreviewColumns = useMemo<ColumnDef<ImportChange>[]>(
@@ -406,7 +523,7 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
   })
 
   const storeTable = useReactTable({
-    data: stores,
+    data: editableStores,
     columns: storeColumns,
     getCoreRowModel: getCoreRowModel(),
   })
@@ -432,7 +549,7 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
 
     setImportBusy(true)
     try {
-      const result = await importDashboardsFromRedash(dashboards, {
+      const result = await importDashboardsFromRedash(editableDashboards, {
         endpointRoot: apiRoot.trim(),
         apiKey: apiKey.trim(),
         orgSlug: orgSlug.trim() || undefined,
@@ -451,7 +568,7 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
         return
       }
 
-      onSave(result.merged)
+      setEditableDashboards(result.merged)
       const skippedNote =
         result.skipped.length > 0
           ? ` Skipped: ${result.skipped.slice(0, 6).join(', ')}${result.skipped.length > 6 ? '…' : ''}.`
@@ -473,12 +590,12 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
   const handleDryRun = async () => runImport({ dryRun: true })
 
   useEffect(() => {
-    if (!authed || !autoSyncEnabled || !apiKey.trim()) return
+    if (!autoSyncEnabled || !apiKey.trim()) return
     const id = window.setInterval(() => {
       void runImport({ dryRun: false, silent: true })
     }, syncIntervalMs)
     return () => window.clearInterval(id)
-  }, [authed, autoSyncEnabled, apiKey, syncIntervalMs, dashboards, apiRoot, orgSlug, includeArchived, conflictPolicy])
+  }, [autoSyncEnabled, apiKey, syncIntervalMs, editableDashboards, apiRoot, orgSlug, includeArchived, conflictPolicy])
 
   useEffect(() => {
     if (!toast) return
@@ -487,61 +604,16 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
   }, [toast])
 
   useEffect(() => {
-    if (homeDashboardSlug && dashboards[homeDashboardSlug]) {
-      window.localStorage.setItem(HOME_DASHBOARD_STORAGE_KEY, homeDashboardSlug)
-      return
-    }
-
+    if (editableHomeSlug && editableDashboards[editableHomeSlug]) return
     const fallback = dashboardSlugs[0] || ''
-    setHomeDashboardSlug(fallback)
-    if (fallback) {
-      window.localStorage.setItem(HOME_DASHBOARD_STORAGE_KEY, fallback)
-    } else {
-      window.localStorage.removeItem(HOME_DASHBOARD_STORAGE_KEY)
-    }
-  }, [homeDashboardSlug, dashboards, dashboardSlugs])
-
-  if (!authed) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-sky-600 text-2xl font-bold text-white shadow-sm">
-              R
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">Dashboard Admin</h1>
-            <p className="mt-1 text-sm text-slate-500">Enter your password to continue</p>
-          </div>
-          <form onSubmit={handleLogin} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <label className="grid gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Password</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={inputCls()}
-                placeholder="••••••••"
-                autoFocus
-              />
-            </label>
-            {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
-            <button
-              type="submit"
-              className="mt-4 w-full rounded-md bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 active:bg-sky-700"
-            >
-              Continue
-            </button>
-          </form>
-        </div>
-      </main>
-    )
-  }
+    setEditableHomeSlug(fallback)
+  }, [editableHomeSlug, editableDashboards, dashboardSlugs])
 
   return (
     <main className="min-h-screen bg-slate-100">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[250px_1fr]">
         <aside className="border-r border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen">
-          <div className="border-b border-slate-200 bg-gradient-to-r from-sky-700 to-cyan-700 px-5 py-5 text-white">
+          <div className="border-b border-slate-200 bg-linear-to-r from-sky-700 to-cyan-700 px-5 py-5 text-white">
             <p className="text-sm font-semibold tracking-tight">Redash Embed</p>
             <p className="text-xs text-sky-100">Admin Control Center</p>
           </div>
@@ -582,6 +654,49 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
         </aside>
 
         <section className="px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+            <p className="text-xs font-medium text-slate-500">
+              {autoSaveState === 'saving'
+                ? 'Autosave in progress...'
+                : autoSaveState === 'saved'
+                  ? 'Autosaved'
+                  : autoSaveState === 'error'
+                    ? 'Autosave failed'
+                    : 'Autosave enabled'}
+            </p>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!/^\d{4}$/.test(editableAdminCode.trim())) {
+                  setError('Admin code must contain exactly 4 digits.')
+                  return
+                }
+                if (editableStores.some((row) => !/^\d{4}$/.test(String(row.accessCode || '').trim()))) {
+                  setError('Every store must have exactly 4 digits.')
+                  return
+                }
+
+                try {
+                  await persistAdminConfig(
+                    editableDashboards,
+                    editableStores,
+                    editableHomeSlug,
+                    editableAdminCode,
+                  )
+                  lastSavedSnapshotRef.current = currentSnapshot
+                  setAutoSaveState('saved')
+                  setToast({ type: 'success', message: 'Configuration saved to database.' })
+                } catch {
+                  // Error message is already set in persistAdminConfig.
+                }
+              }}
+              disabled={savingBusy}
+              className="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {savingBusy ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+
           {toast ? (
             <div
               className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
@@ -715,12 +830,12 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
                 </table>
               </div>
 
-              {view === 'edit' && editingSlug && dashboards[editingSlug] ? (
+              {view === 'edit' && editingSlug && editableDashboards[editingSlug] ? (
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <AdminDashboardEditor
                     slug={editingSlug}
-                    dashboard={dashboards[editingSlug]}
-                    dashboards={dashboards}
+                    dashboard={editableDashboards[editingSlug]}
+                    dashboards={editableDashboards}
                     onSave={handleSaveDashboard}
                     onBack={() => {
                       setView('list')
@@ -744,7 +859,7 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
                   Manage stores used by SHOP ID. This parameter always renders as a select list.
                 </p>
 
-                <div className="mt-4 grid gap-2 md:grid-cols-[1fr_2fr_auto]">
+                <div className="mt-4 grid gap-2 md:grid-cols-[1fr_2fr_1fr_auto]">
                   <input
                     value={newStoreId}
                     onChange={(e) => setNewStoreId(e.target.value)}
@@ -756,6 +871,12 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
                     onChange={(e) => setNewStoreName(e.target.value)}
                     className={inputCls()}
                     placeholder="Store Name"
+                  />
+                  <input
+                    value={newStoreCode}
+                    onChange={(e) => setNewStoreCode(e.target.value.replace(/\D+/g, '').slice(0, 4))}
+                    className={inputCls()}
+                    placeholder="Store Code"
                   />
                   <button
                     type="button"
@@ -783,7 +904,7 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
                   <tbody>
                     {storeTable.getRowModel().rows.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-3 py-6 text-center text-slate-500">
+                        <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
                           No stores configured yet.
                         </td>
                       </tr>
@@ -815,18 +936,31 @@ export function AdminPage({ dashboards, stores, onSave, onSaveStores }: AdminPag
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Default Landing Dashboard</p>
                 <select
-                  value={homeDashboardSlug}
-                  onChange={(e) => setHomeDashboardSlug(e.target.value)}
+                  value={editableHomeSlug}
+                  onChange={(e) => setEditableHomeSlug(e.target.value)}
                   className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                   disabled={dashboardSlugs.length === 0}
                 >
                   {dashboardSlugs.length === 0 ? <option value="">No dashboards available</option> : null}
                   {dashboardSlugs.map((slug) => (
                     <option key={slug} value={slug}>
-                      {dashboards[slug]?.title || slug}
+                      {editableDashboards[slug]?.title || slug}
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Access</p>
+                <label className="mt-3 grid gap-1">
+                  <span className="text-xs font-medium text-slate-600">Admin PIN (4 digits)</span>
+                  <input
+                    value={editableAdminCode}
+                    onChange={(e) => setEditableAdminCode(e.target.value.replace(/\D+/g, '').slice(0, 4))}
+                    className={inputCls()}
+                    placeholder="0000"
+                  />
+                </label>
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">

@@ -1,11 +1,10 @@
 import dayjs from 'dayjs'
 import { ConfigProvider, DatePicker, Input, InputNumber, Select, theme } from 'antd'
 import { CH, FR, GB } from 'country-flag-icons/react/3x2'
-import { APP_LOCALES, getStrings, type AppLocale } from '../../lib/i18n'
-import type { NormalisedControl, DashboardConfig, StoreConfig, TabConfig } from '../../types'
+import { APP_LOCALES, type AppLocale } from '../../lib/i18n'
+import type { NormalisedControl, StoreConfig, TabConfig } from '../../types'
 
 interface DashboardSidebarProps {
-  dashboard: DashboardConfig
   stores: StoreConfig[]
   tabs: TabConfig[]
   activeTabId: string
@@ -17,12 +16,13 @@ interface DashboardSidebarProps {
   activeParams: Record<string, string>
   updateParam: (key: string, value: string) => void
   onApplyAndRunQuery: () => void
-  loadStatus: string
   refreshCountdown: number | null
+  canOpenAdmin: boolean
+  lockedStoreId: string
+  onLogout: () => void
 }
 
 export function DashboardSidebar({
-  dashboard,
   stores,
   tabs,
   activeTabId,
@@ -34,13 +34,14 @@ export function DashboardSidebar({
   activeParams,
   updateParam,
   onApplyAndRunQuery,
-  loadStatus,
   refreshCountdown,
+  canOpenAdmin,
+  lockedStoreId,
+  onLogout,
 }: DashboardSidebarProps) {
   const { RangePicker } = DatePicker
   const DATE_DISPLAY_FORMAT = 'DD.MM.YYYY'
   const DATE_PARAM_FORMAT = 'YYYY-MM-DD'
-  const t = getStrings(locale)
 
   const compactLabel = (label: string) =>
     label
@@ -87,10 +88,6 @@ export function DashboardSidebar({
     >
       <aside className="embed-topbar flex-none border-b border-slate-200 bg-white">
         <div className="flex min-h-11 items-center gap-2 px-2 py-1.5 sm:px-3">
-          <span className="max-w-[32ch] truncate text-sm font-semibold text-slate-900">
-            {dashboard.title || 'Dashboard'}
-          </span>
-
           {tabs.length > 1 ? (
             <select
               value={activeTabId}
@@ -187,8 +184,8 @@ export function DashboardSidebar({
                         <Select
                           className="w-full [&_.ant-select-selection-item]:text-xs [&_.ant-select-selection-item]:font-medium"
                           size="small"
-                          disabled={control.locked}
-                          value={value || undefined}
+                          disabled={control.locked || Boolean(lockedStoreId)}
+                          value={lockedStoreId || value || undefined}
                           options={storeOptions}
                           placeholder="Select store"
                           onChange={(next) => updateParam(control.urlKey, String(next))}
@@ -228,12 +225,21 @@ export function DashboardSidebar({
 
           <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
             {refreshCountdown !== null ? <span>↻ {refreshCountdown}s</span> : null}
-            <a
-              href="/admin"
+            {canOpenAdmin ? (
+              <a
+                href="/admin"
+                className="inline-flex h-7 items-center rounded-md border border-slate-300 bg-white px-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+              >
+                Admin
+              </a>
+            ) : null}
+            <button
+              type="button"
+              onClick={onLogout}
               className="inline-flex h-7 items-center rounded-md border border-slate-300 bg-white px-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
             >
-              Admin
-            </a>
+              Logout
+            </button>
             <button
               type="button"
               onClick={runPrimaryAction}

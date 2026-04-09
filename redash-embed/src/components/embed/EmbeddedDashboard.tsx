@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import type { DashboardsMap, DashboardConfig, StoreConfig } from '../../types'
+import type { DashboardsMap, DashboardConfig, EmbedAccessSession, StoreConfig } from '../../types'
 import {
   buildExecutionPayload,
   buildExecutionUrl,
@@ -11,7 +11,7 @@ import {
 } from '../../lib/params'
 import { buildIframeUrl, discoverParamsUsingApi, getCookieValue } from '../../lib/iframe.ts'
 import { getAvailableLanguages, normalizeDashboard, resolveTab } from '../../lib/storage'
-import { HOME_DASHBOARD_STORAGE_KEY, SYSTEM_PARAM_KEYS } from '../../constants'
+import { SYSTEM_PARAM_KEYS } from '../../constants'
 import {
   APP_LOCALES,
   getStrings,
@@ -30,9 +30,12 @@ const DashboardSidebar = lazy(async () => {
 interface EmbeddedDashboardProps {
   dashboards: DashboardsMap
   stores: StoreConfig[]
+  homeDashboardSlug: string
+  accessSession: EmbedAccessSession
+  onLogout: () => void
 }
 
-export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps) {
+export function EmbeddedDashboard({ dashboards, stores, homeDashboardSlug, accessSession, onLogout }: EmbeddedDashboardProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const pollAbortRef = useRef<AbortController | null>(null)
   const hideObserverRef = useRef<MutationObserver | null>(null)
@@ -41,24 +44,26 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
 
   const pathname = window.location.pathname.replace(/\/+$/, '')
   const segments = pathname.split('/').filter(Boolean)
-  const homeSlug = window.localStorage.getItem(HOME_DASHBOARD_STORAGE_KEY) || ''
   const slug =
-    segments.length > 0 ? decodeURIComponent(segments[segments.length - 1]) : homeSlug || 'default'
+    segments.length > 0
+      ? decodeURIComponent(segments[segments.length - 1])
+      : homeDashboardSlug || 'default'
   const rawDashboard = dashboards[slug] || dashboards.default || Object.values(dashboards)[0] || null
   const dashboard: DashboardConfig | null = rawDashboard ? normalizeDashboard(rawDashboard) : null
 
-  const sessionKey = `redash-embed-unlocked-${slug}`
-  const [unlocked, setUnlocked] = useState(() => {
-    if (!dashboard?.password) return true
-    return window.sessionStorage.getItem(sessionKey) === 'yes'
-  })
+  const [unlocked, setUnlocked] = useState(() => !dashboard?.password)
   const [gatePassword, setGatePassword] = useState('')
   const [gateError, setGateError] = useState('')
+
+  useEffect(() => {
+    setUnlocked(!dashboard?.password)
+    setGatePassword('')
+    setGateError('')
+  }, [slug, dashboard?.password])
 
   const handleGateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (dashboard && gatePassword === dashboard.password) {
-      window.sessionStorage.setItem(sessionKey, 'yes')
       setUnlocked(true)
       setGateError('')
     } else {
@@ -72,10 +77,7 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
 
   const availableLanguages = getAvailableLanguages(dashboard)
   const defaultLang = dashboard?.defaultLanguage || availableLanguages[0] || 'en'
-  const [locale, setLocale] = useState<AppLocale>(() => {
-    const persisted = window.localStorage.getItem('redash-embed-locale') as AppLocale | null
-    return persisted || resolveLocaleFromBrowser()
-  })
+  const [locale, setLocale] = useState<AppLocale>(() => resolveLocaleFromBrowser())
   const [language, setLanguage] = useState(() =>
     preferredDashboardLanguage(locale, availableLanguages, defaultLang),
   )
@@ -83,7 +85,6 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
   useEffect(() => {
     const next = preferredDashboardLanguage(locale, availableLanguages, defaultLang)
     setLanguage(next)
-    window.localStorage.setItem('redash-embed-locale', locale)
     document.documentElement.lang = locale
   }, [locale, availableLanguages, defaultLang])
 
@@ -92,6 +93,19 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
 
   const iframeUrl = useMemo(() => buildIframeUrl(config), [config])
   const configuredControls = useMemo(() => getConfiguredControls(config), [config])
+  const lockedStoreId = accessSession.role === 'store' ? accessSession.storeId || '' : ''
+  const lockedShopKeys = useMemo(() => {
+    if (!lockedStoreId) return []
+    return configuredControls
+      .filter((control) => {
+        const normalized = control.urlKey.toLowerCase()
+        const byUrlKey = normalized === 'p_shop_id' || normalized.endsWith('.shop_id')
+        const byName = control.name.toLowerCase() === 'shop_id'
+        return byUrlKey || byName
+      })
+      .map((control) => control.urlKey)
+  }, [configuredControls, lockedStoreId])
+
   const [activeParams, setActiveParams] = useState<Record<string, string>>(() =>
     getInitialParams(config, configuredControls),
   )
@@ -140,6 +154,24 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
     setLoadStatus('')
     void loadParamsFromIframe()
   }, [activeTabId, language, config?.url, config?.params])
+
+  useEffect(() => {
+    if (!lockedStoreId || lockedShopKeys.length === 0) return
+    setActiveParams((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const key of lockedShopKeys) {
+        if (next[key] !== lockedStoreId) {
+          next[key] = lockedStoreId
+          changed = true
+        }
+      }
+      if (changed) {
+        setIframeSrc(buildIframeUrl(config, next))
+      }
+      return changed ? next : prev
+    })
+  }, [lockedStoreId, lockedShopKeys, config])
 
   useEffect(() => {
     const interval = Number(config?.refreshIntervalSeconds)
@@ -265,7 +297,6 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
     }
 
     if (!iframe) {
-      setLoadStatus('Iframe is not ready yet.')
       return
     }
 
@@ -310,6 +341,7 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
   }
 
   const updateParam = (key: string, value: string) => {
+    if (lockedStoreId && lockedShopKeys.includes(key)) return
     setActiveParams((prev) => {
       const next = { ...prev, [key]: value }
       setIframeSrc(buildIframeUrl(config, next))
@@ -411,7 +443,6 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
     <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-slate-100 text-slate-900">
       <Suspense fallback={<div className="h-11 border-b border-slate-200 bg-white" />}>
         <DashboardSidebar
-          dashboard={dashboard}
           stores={stores}
           tabs={tabs}
           activeTabId={activeTabId}
@@ -423,8 +454,10 @@ export function EmbeddedDashboard({ dashboards, stores }: EmbeddedDashboardProps
           activeParams={activeParams}
           updateParam={updateParam}
           onApplyAndRunQuery={applyAndRunQuery}
-          loadStatus={loadStatus}
           refreshCountdown={refreshCountdown}
+          canOpenAdmin={accessSession.role === 'admin'}
+          lockedStoreId={lockedStoreId}
+          onLogout={onLogout}
         />
       </Suspense>
 

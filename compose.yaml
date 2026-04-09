@@ -20,6 +20,7 @@ x-redash-environment: &redash-environment
   REDASH_MAIL_PORT: 1025
   REDASH_ENFORCE_CSRF: "true"
   REDASH_GUNICORN_TIMEOUT: 60
+  REDASH_EMBED_DEFAULT_ADMIN_CODE: ${EMBED_ADMIN_PASSWORD:-0000}
   # Set secret keys in the .env file
 services:
   server:
@@ -63,14 +64,22 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    restart: unless-stopped
   embed-server:
     build:
       context: ./redash-embed
     ports:
       - "5173:5173"
     environment:
-      VITE_REDASH_PROXY_TARGET: http://server:5000
-      VITE_ADMIN_PASSWORD: ${EMBED_ADMIN_PASSWORD:-redash-admin}
+      VITE_REDASH_PROXY_TARGET: http://host.docker.internal:5001
     depends_on:
       - server
     restart: unless-stopped

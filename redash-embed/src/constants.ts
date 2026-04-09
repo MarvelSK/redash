@@ -1,10 +1,3 @@
-export const STORAGE_KEY = 'redash-embed-dashboards-json'
-export const HOME_DASHBOARD_STORAGE_KEY = 'redash-embed-home-dashboard-slug'
-export const STORE_CATALOG_STORAGE_KEY = 'redash-embed-store-catalog'
-
-export const ADMIN_PASSWORD =
-  (import.meta.env.VITE_ADMIN_PASSWORD as string | undefined) || 'redash-admin'
-
 export const SYSTEM_PARAM_KEYS = new Set(['org_slug', 'hide_parameters', 'api_key'])
 
 export const JOB_STATUS_NAMES: Record<number, string> = {
