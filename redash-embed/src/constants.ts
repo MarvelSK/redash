@@ -10,6 +10,9 @@ export const JOB_STATUS_NAMES: Record<number, string> = {
 
 export const POLL_INTERVAL_MS = 1500
 
+export const EMBED_LOCALE_STORAGE_KEY = 'redash-embed.locale'
+export const EMBED_FILTERS_STORAGE_PREFIX = 'redash-embed.filters.'
+
 export const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English',
   de: 'Deutsch',

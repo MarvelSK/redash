@@ -22,8 +22,8 @@ export function AdminLanguageEditor({ languages, onChange }: AdminLanguageEditor
     onChange(next)
   }
 
-  const update = (code: string, field: 'url' | 'params', value: string) => {
-    onChange({ ...languages, [code]: { ...languages[code], [field]: value } })
+  const updateUrl = (code: string, value: string) => {
+    onChange({ ...languages, [code]: { ...languages[code], url: value } })
   }
 
   return (
@@ -65,15 +65,7 @@ export function AdminLanguageEditor({ languages, onChange }: AdminLanguageEditor
                     className={inputCls('font-mono text-xs')}
                     value={data.url || ''}
                     placeholder="https://your-redash/public/dashboards/TOKEN?org_slug=default"
-                    onChange={(e) => update(code, 'url', e.target.value)}
-                  />
-                </Field>
-                <Field label="Default params (key=value&key=value)">
-                  <input
-                    className={inputCls('font-mono text-xs')}
-                    value={data.params || ''}
-                    placeholder="p_date_from=2026-01-01&p_shop_id=ZURICH"
-                    onChange={(e) => update(code, 'params', e.target.value)}
+                    onChange={(e) => updateUrl(code, e.target.value)}
                   />
                 </Field>
               </div>

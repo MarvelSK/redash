@@ -83,6 +83,28 @@ export function getInitialParams(
     }
   })
 
+  const isBlank = (value: unknown) => value === undefined || value === null || String(value).trim() === ''
+  const formatDate = (value: Date) => {
+    const year = value.getFullYear()
+    const month = String(value.getMonth() + 1).padStart(2, '0')
+    const day = String(value.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  const getCurrentWeekRange = () => {
+    const now = new Date()
+    const day = now.getDay()
+    const mondayOffset = day === 0 ? -6 : 1 - day
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + mondayOffset)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    return { from: formatDate(monday), to: formatDate(sunday) }
+  }
+
+  const { from, to } = getCurrentWeekRange()
+  if (isBlank(next.p_date_from)) next.p_date_from = from
+  if (isBlank(next.p_date_to)) next.p_date_to = to
+
   return next
 }
 

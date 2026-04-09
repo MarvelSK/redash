@@ -1,4 +1,7 @@
 import dayjs from 'dayjs'
+import enUS from 'antd/locale/en_US'
+import frFR from 'antd/locale/fr_FR'
+import deDE from 'antd/locale/de_DE'
 import { ConfigProvider, DatePicker, Input, InputNumber, Select, theme } from 'antd'
 import { CH, FR, GB } from 'country-flag-icons/react/3x2'
 import { APP_LOCALES, type AppLocale } from '../../lib/i18n'
@@ -54,6 +57,11 @@ export function DashboardSidebar({
     fr: FR,
     'de-ch': CH,
   } as const
+  const antdLocaleByAppLocale = {
+    en: enUS,
+    fr: frFR,
+    'de-ch': deDE,
+  } as const
 
   const runPrimaryAction = () => {
     onApplyAndRunQuery()
@@ -75,6 +83,7 @@ export function DashboardSidebar({
 
   return (
     <ConfigProvider
+      locale={antdLocaleByAppLocale[locale]}
       theme={{
         algorithm: theme.defaultAlgorithm,
         token: {
@@ -102,29 +111,6 @@ export function DashboardSidebar({
               ))}
             </select>
           ) : null}
-
-          <div className="flex items-center gap-1">
-            {APP_LOCALES.map((opt) => {
-              const mappedLangAvailable = availableLanguages.includes(opt.dashboardLang)
-              const active = locale === opt.code
-              const FlagIcon = flagsByLocale[opt.code]
-              return (
-                <button
-                  key={opt.code}
-                  type="button"
-                  onClick={() => onLocaleChange(opt.code)}
-                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                    active
-                      ? 'border-sky-300 bg-sky-50 shadow-sm'
-                      : 'border-slate-300 bg-white hover:border-slate-400'
-                  }`}
-                  title={`${opt.label}${mappedLangAvailable ? '' : ' (dashboard fallback)'}`}
-                >
-                  <FlagIcon className="h-4 w-5 rounded-xs" />
-                </button>
-              )
-            })}
-          </div>
 
           {configuredControls.length > 0 ? (
             <div className="min-w-0 flex-1 overflow-x-auto">
@@ -225,6 +211,28 @@ export function DashboardSidebar({
 
           <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
             {refreshCountdown !== null ? <span>↻ {refreshCountdown}s</span> : null}
+            <div className="flex items-center gap-1">
+              {APP_LOCALES.map((opt) => {
+                const mappedLangAvailable = availableLanguages.includes(opt.dashboardLang)
+                const active = locale === opt.code
+                const FlagIcon = flagsByLocale[opt.code]
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => onLocaleChange(opt.code)}
+                    className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                      active
+                        ? 'border-sky-300 bg-sky-50 shadow-sm'
+                        : 'border-slate-300 bg-white hover:border-slate-400'
+                    }`}
+                    title={`${opt.label}${mappedLangAvailable ? '' : ' (dashboard fallback)'}`}
+                  >
+                    <FlagIcon className="h-4 w-5 rounded-xs" />
+                  </button>
+                )
+              })}
+            </div>
             {canOpenAdmin ? (
               <a
                 href="/admin"

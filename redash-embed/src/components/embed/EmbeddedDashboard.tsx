@@ -11,7 +11,11 @@ import {
 } from '../../lib/params'
 import { buildIframeUrl, discoverParamsUsingApi, getCookieValue } from '../../lib/iframe.ts'
 import { getAvailableLanguages, normalizeDashboard, resolveTab } from '../../lib/storage'
-import { SYSTEM_PARAM_KEYS } from '../../constants'
+import {
+  EMBED_FILTERS_STORAGE_PREFIX,
+  EMBED_LOCALE_STORAGE_KEY,
+  SYSTEM_PARAM_KEYS,
+} from '../../constants'
 import {
   APP_LOCALES,
   getStrings,
@@ -77,9 +81,24 @@ export function EmbeddedDashboard({ dashboards, stores, homeDashboardSlug, acces
 
   const availableLanguages = getAvailableLanguages(dashboard)
   const defaultLang = dashboard?.defaultLanguage || availableLanguages[0] || 'en'
-  const [locale, setLocale] = useState<AppLocale>(() => resolveLocaleFromBrowser())
+  const [locale, setLocale] = useState<AppLocale>(() => {
+    try {
+      const stored = window.localStorage.getItem(EMBED_LOCALE_STORAGE_KEY)
+      if (stored === 'en' || stored === 'fr' || stored === 'de-ch') {
+        return stored
+      }
+    } catch {
+      // ignore localStorage failures
+    }
+    return resolveLocaleFromBrowser()
+  })
   const [language, setLanguage] = useState(() =>
     preferredDashboardLanguage(locale, availableLanguages, defaultLang),
+  )
+
+  const filtersStorageKey = useMemo(
+    () => `${EMBED_FILTERS_STORAGE_PREFIX}${slug}.${activeTabId}.${language}`,
+    [slug, activeTabId, language],
   )
 
   useEffect(() => {
@@ -87,6 +106,14 @@ export function EmbeddedDashboard({ dashboards, stores, homeDashboardSlug, acces
     setLanguage(next)
     document.documentElement.lang = locale
   }, [locale, availableLanguages, defaultLang])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(EMBED_LOCALE_STORAGE_KEY, locale)
+    } catch {
+      // ignore localStorage failures
+    }
+  }, [locale])
 
   const config = resolveTab(activeTab, language)
   const t = getStrings(locale)
@@ -149,11 +176,43 @@ export function EmbeddedDashboard({ dashboards, stores, homeDashboardSlug, acces
     lastAutoLoadKeyRef.current = autoLoadKey
 
     const parsed = getInitialParams(config, configuredControls)
-    setActiveParams((prev) => (areParamsEqual(prev, parsed) ? prev : parsed))
-    setIframeSrc(buildIframeUrl(config, parsed))
+    let nextParams = parsed
+    let hasSavedFilters = false
+
+    try {
+      const raw = window.localStorage.getItem(filtersStorageKey)
+      if (raw) {
+        const saved = JSON.parse(raw) as Record<string, unknown>
+        if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+          const merged: Record<string, string> = { ...parsed }
+          Object.entries(saved).forEach(([key, value]) => {
+            if (typeof value === 'string') {
+              merged[key] = value
+            }
+          })
+          nextParams = merged
+          hasSavedFilters = true
+        }
+      }
+    } catch {
+      // ignore malformed localStorage data
+    }
+
+    setActiveParams((prev) => (areParamsEqual(prev, nextParams) ? prev : nextParams))
+    setIframeSrc(buildIframeUrl(config, nextParams))
     setLoadStatus('')
-    void loadParamsFromIframe()
-  }, [activeTabId, language, config?.url, config?.params])
+    if (!hasSavedFilters) {
+      void loadParamsFromIframe()
+    }
+  }, [activeTabId, language, config?.url, config?.params, filtersStorageKey])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(filtersStorageKey, JSON.stringify(activeParams))
+    } catch {
+      // ignore localStorage failures
+    }
+  }, [filtersStorageKey, activeParams])
 
   useEffect(() => {
     if (!lockedStoreId || lockedShopKeys.length === 0) return
