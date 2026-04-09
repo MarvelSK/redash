@@ -131,6 +131,30 @@ def safe_int(value: object) -> int:
         return 0
 
 
+def is_probable_age_bucket(label: str) -> bool:
+    normalized = remove_diacritics(label)
+    if not normalized:
+        return False
+
+    # Skip obvious non-age rows.
+    if normalized in {"mannlich", "weiblich", "nicht erkannt", "gesamt", "summe", "total"}:
+        return False
+
+    # Skip time labels like 11:00.
+    if re.match(r"^\d{1,2}:\d{2}$", normalized):
+        return False
+
+    # Typical age labels in reports are either text-based buckets (Jugendliche...)
+    # or numeric ranges (0-9, 70+).
+    if any(token in normalized for token in ("jugend", "kinder", "senior", "alter", "teen")):
+        return True
+
+    if re.match(r"^\d+\s*-\s*\d+\+?$", normalized) or re.match(r"^\d+\+$", normalized):
+        return True
+
+    return False
+
+
 def parse_report_date(raw_value: object) -> date:
     text = str(raw_value or "").strip()
     match = re.search(r"(\d{4}/\d{2}/\d{2})", text)
@@ -341,17 +365,25 @@ def parse_and_write(connection: MySQLConnection, excel_path: Path, shop_id: str)
         upsert_daily_overview(connection, shop_id, kpi_date, total, male, female, unknown)
 
         age_items: list[tuple[str, int]] = []
-        for row_index in range(13, 26):
+        # Parse age section defensively: reports can shift row positions over time.
+        for row_index in range(1, 81):
             age_label = str(get_excel_cell(sheet2, row_index, 3) or "").strip()
             age_count = safe_int(get_excel_cell(sheet2, row_index, 4))
-            normalized = remove_diacritics(age_label)
             if not age_label:
                 continue
-            if normalized in {"mannlich", "weiblich", "nicht erkannt"}:
+            if not is_probable_age_bucket(age_label):
                 continue
             age_items.append((age_label, age_count))
 
-        replace_age_distribution(connection, shop_id, kpi_date, age_items)
+        if age_items:
+            replace_age_distribution(connection, shop_id, kpi_date, age_items)
+        else:
+            LOGGER.warning(
+                "No age rows parsed for shop=%s date=%s file=%s; keeping any existing age rows unchanged",
+                shop_id,
+                kpi_date,
+                excel_path,
+            )
 
         hourly_items: list[tuple[str, int, int, int, int]] = []
         for row_index in range(33, 49):
