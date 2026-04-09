@@ -69,21 +69,6 @@ export function getInitialParams(
   const parsed = parseParams(config?.params || '')
   const next: Record<string, string> = { ...parsed }
 
-  controls.forEach((control) => {
-    if (control.type === 'date-range') {
-      const startKey = `${control.urlKey}.start`
-      const endKey = `${control.urlKey}.end`
-      if (!next[startKey]) next[startKey] = control.defaultValueStart
-      if (!next[endKey]) next[endKey] = control.defaultValueEnd
-    } else {
-      const currentValue = next[control.urlKey]
-      if (currentValue === undefined || currentValue === null || currentValue === '') {
-        next[control.urlKey] = String(control.defaultValue ?? '')
-      }
-    }
-  })
-
-  const isBlank = (value: unknown) => value === undefined || value === null || String(value).trim() === ''
   const formatDate = (value: Date) => {
     const year = value.getFullYear()
     const month = String(value.getMonth() + 1).padStart(2, '0')
@@ -101,9 +86,23 @@ export function getInitialParams(
     return { from: formatDate(monday), to: formatDate(sunday) }
   }
 
+  controls.forEach((control) => {
+    if (control.type === 'date-range') {
+      const startKey = `${control.urlKey}.start`
+      const endKey = `${control.urlKey}.end`
+      if (!next[startKey]) next[startKey] = control.defaultValueStart
+      if (!next[endKey]) next[endKey] = control.defaultValueEnd
+    } else {
+      const currentValue = next[control.urlKey]
+      if (currentValue === undefined || currentValue === null || currentValue === '') {
+        next[control.urlKey] = String(control.defaultValue ?? '')
+      }
+    }
+  })
+
   const { from, to } = getCurrentWeekRange()
-  if (isBlank(next.p_date_from)) next.p_date_from = from
-  if (isBlank(next.p_date_to)) next.p_date_to = to
+  next.p_date_from = from
+  next.p_date_to = to
 
   return next
 }
