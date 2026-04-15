@@ -13,7 +13,7 @@ interface AdminPageProps {
   onSave: (dashboards: DashboardsMap, stores: StoreConfig[], homeDashboardSlug: string, adminCode: string) => Promise<void>
 }
 
-type Section = 'dashboards' | 'builder' | 'stores' | 'system'
+type Section = 'dashboards' | 'builder' | 'stores' | 'system' | 'redash'
 
 type DashboardRow = {
   slug: string
@@ -47,6 +47,9 @@ export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, on
   const [section, setSection] = useState<Section>('dashboards')
   const [dashboardSearch, setDashboardSearch] = useState('')
   const [builderSearch, setBuilderSearch] = useState('')
+  const [redashEndpoint, setRedashEndpoint] = useState<'hostname' | 'localhost'>(
+    window.location.hostname === 'localhost' ? 'localhost' : 'hostname',
+  )
 
   const [importBusy, setImportBusy] = useState(false)
   const [savingBusy, setSavingBusy] = useState(false)
@@ -210,6 +213,14 @@ export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, on
 
   const syncIntervalMs = useMemo(() => Math.max(5, Number(syncMinutes || 30)) * 60_000, [syncMinutes])
 
+  const redashBaseUrl = useMemo(() => {
+    if (redashEndpoint === 'localhost') return 'http://localhost:5001'
+    const host = (window.location.hostname || 'localhost').trim() || 'localhost'
+    return `http://${host}:5001`
+  }, [redashEndpoint])
+
+  const redashAdminUrl = `${redashBaseUrl}/admin`
+
   const openEditor = (slug: string) => {
     setEditingSlug(slug)
     setView('edit')
@@ -295,6 +306,7 @@ export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, on
     const duplicate = new Set<string>()
     for (const row of next) {
       const key = row.id.trim().toLowerCase()
+              { id: 'redash', label: 'Redash' },
       if (!key) {
         setError('Store ID cannot be empty.')
         return
@@ -1108,6 +1120,50 @@ export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, on
                   </table>
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {section === 'redash' ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">Redash Admin</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Manage native Redash settings directly inside redash-embed.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={redashEndpoint}
+                      onChange={(e) => setRedashEndpoint(e.target.value as 'hostname' | 'localhost')}
+                      className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="hostname">Hostname:5001</option>
+                      <option value="localhost">localhost:5001</option>
+                    </select>
+                    <a
+                      href={redashAdminUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Open in New Tab
+                    </a>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-xs text-slate-500">Current endpoint: {redashAdminUrl}</p>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <iframe
+                  key={redashAdminUrl}
+                  src={redashAdminUrl}
+                  title="Redash Admin"
+                  className="h-[75vh] w-full"
+                />
+              </div>
             </div>
           ) : null}
         </section>
