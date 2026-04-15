@@ -136,12 +136,6 @@ def is_probable_age_bucket(label: str) -> bool:
     if not normalized:
         return False
 
-    # Never treat time/date labels as age buckets.
-    if ":" in normalized:
-        return False
-    if re.search(r"\b\d{1,2}/\d{1,2}\b", normalized):
-        return False
-
     # Skip obvious non-age rows.
     if normalized in {"mannlich", "weiblich", "nicht erkannt", "gesamt", "summe", "total"}:
         return False
@@ -158,60 +152,7 @@ def is_probable_age_bucket(label: str) -> bool:
     if re.match(r"^\d+\s*-\s*\d+\+?$", normalized) or re.match(r"^\d+\+$", normalized):
         return True
 
-    # Accept labels like "15-17 Jahre" by looking for range-like tokens.
-    if re.search(r"\d+\s*-\s*\d+", normalized):
-        return True
-
     return False
-
-
-def parse_age_items(sheet: object) -> list[tuple[str, int]]:
-    # Scan a wider area and detect labels in any column with numeric value nearby.
-    found: list[tuple[str, int]] = []
-    seen_labels: set[str] = set()
-
-    for row_index in range(1, 121):
-        row_values = [get_excel_cell(sheet, row_index, col_index) for col_index in range(1, 9)]
-
-        for col_index, raw_label in enumerate(row_values, start=1):
-            label = str(raw_label or "").strip()
-            if not label:
-                continue
-            if not is_probable_age_bucket(label):
-                continue
-
-            # Find first numeric value to the right of the label (up to 3 columns).
-            count = 0
-            for offset in (1, 2, 3):
-                next_col = col_index + offset
-                if next_col > 8:
-                    break
-                value = get_excel_cell(sheet, row_index, next_col)
-                if isinstance(value, (int, float)):
-                    count = int(value)
-                    break
-                parsed = safe_int(value)
-                if parsed != 0:
-                    count = parsed
-                    break
-
-            if label not in seen_labels:
-                found.append((label, count))
-                seen_labels.add(label)
-
-    return found
-
-
-def summarize_rows_for_debug(sheet: object, max_rows: int = 80) -> str:
-    samples: list[str] = []
-    for row_index in range(1, max_rows + 1):
-        values = [get_excel_cell(sheet, row_index, col_index) for col_index in range(1, 8)]
-        if any(v not in (None, "") for v in values):
-            compact = " | ".join(str(v) if v is not None else "" for v in values)
-            samples.append(f"r{row_index}: {compact}")
-        if len(samples) >= 12:
-            break
-    return " ; ".join(samples)
 
 
 def parse_report_date(raw_value: object) -> date:
@@ -423,17 +364,25 @@ def parse_and_write(connection: MySQLConnection, excel_path: Path, shop_id: str)
 
         upsert_daily_overview(connection, shop_id, kpi_date, total, male, female, unknown)
 
-        age_items = parse_age_items(sheet2)
+        age_items: list[tuple[str, int]] = []
+        # Parse age section defensively: reports can shift row positions over time.
+        for row_index in range(1, 81):
+            age_label = str(get_excel_cell(sheet2, row_index, 3) or "").strip()
+            age_count = safe_int(get_excel_cell(sheet2, row_index, 4))
+            if not age_label:
+                continue
+            if not is_probable_age_bucket(age_label):
+                continue
+            age_items.append((age_label, age_count))
 
         if age_items:
             replace_age_distribution(connection, shop_id, kpi_date, age_items)
         else:
             LOGGER.warning(
-                "No age rows parsed for shop=%s date=%s file=%s; sample=%s; keeping any existing age rows unchanged",
+                "No age rows parsed for shop=%s date=%s file=%s; keeping any existing age rows unchanged",
                 shop_id,
                 kpi_date,
                 excel_path,
-                summarize_rows_for_debug(sheet2),
             )
 
         hourly_items: list[tuple[str, int, int, int, int]] = []
