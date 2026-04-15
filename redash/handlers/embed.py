@@ -1,8 +1,9 @@
 import os
+from urllib.parse import urlparse
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from flask import current_app, request
-from flask_login import current_user, login_required
+from flask import current_app, redirect, request
+from flask_login import current_user, login_required, login_user
 from sqlalchemy.orm.attributes import flag_modified
 
 from redash import models
@@ -23,6 +24,54 @@ EMBED_SESSION_SALT = "redash-embed-session"
 EMBED_SESSION_MAX_AGE = 60 * 60 * 12
 EMBED_SESSION_COOKIE_NAME = "redash_embed_session"
 EMBED_DEFAULT_ADMIN_CODE = os.environ.get("REDASH_EMBED_DEFAULT_ADMIN_CODE", "0000")
+
+
+def _validate_redash_admin_target(raw_target):
+    target = str(raw_target or "").strip()
+    if not target:
+        return "/admin"
+
+    parsed = urlparse(target)
+
+    # Support relative targets and keep them constrained to the admin area.
+    if not parsed.scheme and not parsed.netloc:
+        if target.startswith("/admin"):
+            return target
+        return "/admin"
+
+    # Allow only Redash admin on localhost:5001 or current-hostname:5001.
+    expected_host = (request.host.split(":", 1)[0] or "").lower()
+    allowed_hosts = {"localhost"}
+    if expected_host:
+        allowed_hosts.add(expected_host)
+
+    hostname = (parsed.hostname or "").lower()
+    if parsed.scheme != "http":
+        return "/admin"
+    if hostname not in allowed_hosts:
+        return "/admin"
+    if parsed.port != 5001:
+        return "/admin"
+    if not parsed.path.startswith("/admin"):
+        return "/admin"
+
+    return parsed.geturl()
+
+
+def _embed_admin_user(org):
+    admin_group = org.admin_group
+    if not admin_group:
+        return None
+
+    return (
+        models.User.query.filter(
+            models.User.org_id == org.id,
+            models.User.disabled_at.is_(None),
+            models.User.group_ids.any(admin_group.id),
+        )
+        .order_by(models.User.id.asc())
+        .first()
+    )
 
 
 def _safe_store_list(raw_stores):
@@ -297,3 +346,20 @@ def save_embed_config(org_slug=None):
     models.db.session.commit()
 
     return json_response({"ok": True})
+
+
+@routes.route(org_scoped_rule("/api/embed/admin/redash/sso"), methods=["GET"])
+def embed_admin_redash_sso(org_slug=None):
+    org = current_org._get_current_object()
+    if not _is_admin_session(org):
+        return json_response({"message": "Forbidden"}), 403
+
+    user = _embed_admin_user(org)
+    if not user:
+        return json_response({"message": "No active admin user found for this organization."}), 404
+
+    # Issue a regular Redash login session for iframe navigation.
+    login_user(user, remember=True)
+
+    target = _validate_redash_admin_target(request.args.get("target"))
+    return redirect(target)

@@ -220,6 +220,7 @@ export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, on
   }, [redashEndpoint])
 
   const redashAdminUrl = `${redashBaseUrl}/admin`
+  const redashSsoUrl = `/api/embed/admin/redash/sso?target=${encodeURIComponent(redashAdminUrl)}`
 
   const openEditor = (slug: string) => {
     setEditingSlug(slug)
@@ -306,7 +307,6 @@ export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, on
     const duplicate = new Set<string>()
     for (const row of next) {
       const key = row.id.trim().toLowerCase()
-              { id: 'redash', label: 'Redash' },
       if (!key) {
         setError('Store ID cannot be empty.')
         return
@@ -636,6 +636,7 @@ export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, on
               { id: 'builder', label: 'Builder' },
               { id: 'stores', label: 'Stores' },
               { id: 'system', label: 'System' },
+              { id: 'redash', label: 'Redash' },
             ].map((item) => (
               <button
                 key={item.id}
@@ -1158,8 +1159,8 @@ export function AdminPage({ dashboards, stores, homeDashboardSlug, adminCode, on
 
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <iframe
-                  key={redashAdminUrl}
-                  src={redashAdminUrl}
+                  key={redashSsoUrl}
+                  src={redashSsoUrl}
                   title="Redash Admin"
                   className="h-[75vh] w-full"
                 />
