@@ -43,6 +43,52 @@ function hasAnyGroupIntersection(groupIdsA = [], groupIdsB = []) {
   return groupIdsB.some((id) => normalizedA.includes(String(id)));
 }
 
+function normalizeLocaleCode(value) {
+  if (!_.isString(value)) {
+    return "";
+  }
+
+  return _.toLower(value.trim().replace("_", "-"));
+}
+
+function resolveDashboardLocale() {
+  const queryLocale = normalizeLocaleCode(location.search.lang || location.search.locale);
+  if (queryLocale) {
+    return queryLocale;
+  }
+
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return normalizeLocaleCode(_.get(window, "navigator.language", ""));
+}
+
+function getLocalizedParameterTitle(parameterName, options, defaultTitle) {
+  const allTranslations = _.get(options, "parameterTranslations");
+  if (!_.isObject(allTranslations)) {
+    return defaultTitle;
+  }
+
+  const locale = resolveDashboardLocale();
+  const localeBase = locale.split("-")[0];
+  const localeCandidates = _.uniq([locale, localeBase, "en"]);
+
+  for (const localeCode of localeCandidates) {
+    if (!localeCode) {
+      continue;
+    }
+
+    const localeTranslations = allTranslations[localeCode];
+    const translated = _.get(localeTranslations, parameterName);
+    if (_.isString(translated) && !_.isEmpty(translated.trim())) {
+      return translated.trim();
+    }
+  }
+
+  return defaultTitle;
+}
+
 function applyParameterPermissions(param, permissionsMap = {}, userGroupIds = []) {
   const rule = permissionsMap[param.name];
   param.isReadonly = false;
@@ -249,7 +295,8 @@ Dashboard.prototype.canEdit = function canEdit() {
 Dashboard.prototype.getParametersDefs = function getParametersDefs() {
   const globalParams = {};
   const queryParams = location.search;
-  const parameterPermissions = this.options.parameterPermissions || {};
+  const options = this.options || {};
+  const parameterPermissions = options.parameterPermissions || {};
   const userGroupIds = currentUser.groups || [];
   _.each(this.widgets, (widget) => {
     if (widget.getQuery()) {
@@ -264,7 +311,11 @@ Dashboard.prototype.getParametersDefs = function getParametersDefs() {
             if (!globalParams[mapping.mapTo]) {
               globalParams[mapping.mapTo] = cloneParameter(param);
               globalParams[mapping.mapTo].name = mapping.mapTo;
-              globalParams[mapping.mapTo].title = mapping.title || param.title;
+              globalParams[mapping.mapTo].title = getLocalizedParameterTitle(
+                mapping.mapTo,
+                options,
+                mapping.title || param.title
+              );
               globalParams[mapping.mapTo].locals = [];
             }
 
@@ -276,7 +327,7 @@ Dashboard.prototype.getParametersDefs = function getParametersDefs() {
   });
   const mergedValues = {
     ..._.mapValues(globalParams, (p) => p.value),
-    ...Object.fromEntries((this.options.parameters || []).map((param) => [param.name, param.value])),
+    ...Object.fromEntries((options.parameters || []).map((param) => [param.name, param.value])),
   };
   const resultingGlobalParams = _.values(
     _.each(globalParams, (param) => {
@@ -288,9 +339,9 @@ Dashboard.prototype.getParametersDefs = function getParametersDefs() {
 
   // order dashboard params using paramOrder
   return _.sortBy(resultingGlobalParams, (param) =>
-    _.includes(this.options.globalParamOrder, param.name)
-      ? _.indexOf(this.options.globalParamOrder, param.name)
-      : _.size(this.options.globalParamOrder)
+    _.includes(options.globalParamOrder, param.name)
+      ? _.indexOf(options.globalParamOrder, param.name)
+      : _.size(options.globalParamOrder)
   );
 };
 
