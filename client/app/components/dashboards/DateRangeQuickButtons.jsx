@@ -1,77 +1,43 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import PropTypes from "prop-types";
-import moment from "moment";
 import Button from "antd/lib/button";
 import location from "@/services/location";
 import { Parameter } from "@/services/parameters";
+import recordEvent from "@/services/recordEvent";
+import {
+  DEFAULT_DATE_RANGE_PRESET_KEYS,
+  getPresetRange,
+  resolveDateRangePresets,
+  resolveLocaleFromContext,
+} from "./dateRangeQuickPresets";
 
 function normalizeParameterName(name) {
   return String(name || "").trim().toLowerCase();
 }
 
-function getPresetRange(presetKey) {
-  switch (presetKey) {
-    case "today":
-      return [moment().startOf("day"), moment().endOf("day")];
-    case "current-week":
-      return [moment().startOf("isoWeek"), moment().endOf("isoWeek")];
-    case "previous-week":
-      return [
-        moment().subtract(1, "week").startOf("isoWeek"),
-        moment().subtract(1, "week").endOf("isoWeek"),
-      ];
-    case "current-month":
-      return [moment().startOf("month"), moment().endOf("month")];
-    case "previous-month":
-      return [
-        moment().subtract(1, "month").startOf("month"),
-        moment().subtract(1, "month").endOf("month"),
-      ];
-    default:
-      return null;
-  }
-}
-
-const DEFAULT_DATE_PRESETS = [
-  { key: "today", label: "Dnes" },
-  { key: "current-week", label: "Aktualny tyzden" },
-  { key: "previous-week", label: "Minuly tyzden" },
-  { key: "current-month", label: "Aktualny mesiac" },
-  { key: "previous-month", label: "Minuly mesiac" },
-];
-
-function buildPresetList(presets) {
-  const source = Array.isArray(presets) && presets.length > 0 ? presets : DEFAULT_DATE_PRESETS;
-  const normalized = [];
-
-  source.forEach((item) => {
-    const preset = typeof item === "string" ? { key: item } : item;
-    const key = String(preset?.key || "").trim();
-    if (!key || !getPresetRange(key)) {
-      return;
-    }
-
-    const fallbackLabel = DEFAULT_DATE_PRESETS.find((defaultPreset) => defaultPreset.key === key)?.label || key;
-    const customLabel = String(preset?.label || "").trim();
-    normalized.push({
-      key,
-      label: customLabel || fallbackLabel,
-    });
-  });
-
-  return normalized;
-}
-
-export default function DateRangeQuickButtons({ parameters, onValuesChange, presets }) {
+export default function DateRangeQuickButtons({
+  parameters,
+  onValuesChange,
+  presets,
+  defaultPresetKey,
+  userGroupIds,
+  isPublic,
+  dashboardId,
+}) {
   const dateFromParam = parameters.find((param) => normalizeParameterName(param.name) === "date_from");
   const dateToParam = parameters.find((param) => normalizeParameterName(param.name) === "date_to");
-  const presetList = buildPresetList(presets);
+  const locale = resolveLocaleFromContext();
+  const hasAppliedDefaultRef = useRef(false);
+  const presetList = useMemo(
+    () => resolveDateRangePresets({ presets, locale, userGroupIds, isPublic }),
+    [presets, locale, userGroupIds, isPublic]
+  );
 
   if (!dateFromParam || !dateToParam || presetList.length === 0) {
     return null;
   }
 
-  const applyPreset = (presetKey) => {
+  const applyPreset = (presetKey, autoApplied = false) => {
     const range = getPresetRange(presetKey);
     if (!range) {
       return;
@@ -89,8 +55,38 @@ export default function DateRangeQuickButtons({ parameters, onValuesChange, pres
     };
     location.setSearch(updatedSearch, true);
 
+    if (dashboardId) {
+      recordEvent("apply_date_range_preset", "dashboard", dashboardId, {
+        presetKey,
+        autoApplied,
+        isPublic,
+      });
+    }
+
     onValuesChange([dateFromParam, dateToParam]);
   };
+
+  useEffect(() => {
+    if (hasAppliedDefaultRef.current) {
+      return;
+    }
+
+    if (!defaultPresetKey) {
+      return;
+    }
+
+    const presetAvailable = presetList.some((preset) => preset.key === defaultPresetKey);
+    if (!presetAvailable) {
+      return;
+    }
+
+    if (location.search.p_date_from || location.search.p_date_to) {
+      return;
+    }
+
+    hasAppliedDefaultRef.current = true;
+    applyPreset(defaultPresetKey, true);
+  }, [defaultPresetKey, presetList]);
 
   return (
     <div className="m-b-10" data-test="DashboardDateQuickButtons">
@@ -121,10 +117,18 @@ DateRangeQuickButtons.propTypes = {
       }),
     ])
   ),
+  defaultPresetKey: PropTypes.string,
+  userGroupIds: PropTypes.arrayOf(PropTypes.number),
+  isPublic: PropTypes.bool,
+  dashboardId: PropTypes.number,
 };
 
 DateRangeQuickButtons.defaultProps = {
   parameters: [],
   onValuesChange: () => {},
-  presets: DEFAULT_DATE_PRESETS,
+  presets: DEFAULT_DATE_RANGE_PRESET_KEYS,
+  defaultPresetKey: null,
+  userGroupIds: [],
+  isPublic: false,
+  dashboardId: null,
 };
