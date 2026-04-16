@@ -10,6 +10,7 @@ import Select from "antd/lib/select";
 import routeWithUserSession from "@/components/ApplicationArea/routeWithUserSession";
 import DynamicComponent from "@/components/DynamicComponent";
 import DashboardGrid from "@/components/dashboards/DashboardGrid";
+import DateRangeQuickButtons from "@/components/dashboards/DateRangeQuickButtons";
 import Parameters from "@/components/Parameters";
 import Filters from "@/components/Filters";
 
@@ -334,6 +335,7 @@ function DashboardComponent(props) {
       />
       {!isEmpty(globalParameters) && (
         <div className="dashboard-parameters m-b-10 p-15 bg-white tiled" data-test="DashboardParameters">
+          <DateRangeQuickButtons parameters={globalParameters} onValuesChange={refreshDashboard} />
           <Parameters
             parameters={globalParameters}
             onValuesChange={refreshDashboard}

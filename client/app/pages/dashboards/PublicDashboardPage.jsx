@@ -8,6 +8,7 @@ import BigMessage from "@/components/BigMessage";
 import PageHeader from "@/components/PageHeader";
 import Parameters from "@/components/Parameters";
 import DashboardGrid from "@/components/dashboards/DashboardGrid";
+import DateRangeQuickButtons from "@/components/dashboards/DateRangeQuickButtons";
 import Filters from "@/components/Filters";
 
 import { Dashboard } from "@/services/dashboard";
@@ -29,6 +30,7 @@ function PublicDashboard({ dashboard }) {
       <PageHeader title={dashboard.name} />
       {!isEmpty(globalParameters) && (
         <div className="m-b-10 p-15 bg-white tiled">
+          <DateRangeQuickButtons parameters={globalParameters} onValuesChange={refreshDashboard} />
           <Parameters parameters={globalParameters} onValuesChange={refreshDashboard} />
         </div>
       )}
