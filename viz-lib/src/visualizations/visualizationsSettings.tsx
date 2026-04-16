@@ -1,5 +1,5 @@
 import React from "react";
-import { extend } from "lodash";
+import { extend, get } from "lodash";
 import Tooltip from "antd/lib/tooltip";
 
 type HelpTriggerProps = {
@@ -48,8 +48,15 @@ export const visualizationsSettings = {
   allowCustomJSVisualizations: false,
   hidePlotlyModeBar: false,
   choroplethAvailableMaps: {},
+  locale: "en",
+  strings: {},
 };
 
 export function updateVisualizationsSettings(options: any) {
   extend(visualizationsSettings, options);
+}
+
+export function vt(key: string, fallback = "") {
+  const value = get(visualizationsSettings.strings, key, fallback || key);
+  return typeof value === "string" ? value : fallback || key;
 }

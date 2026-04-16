@@ -12,6 +12,7 @@ import EyeOutlinedIcon from "@ant-design/icons/EyeOutlined";
 import EyeInvisibleOutlinedIcon from "@ant-design/icons/EyeInvisibleOutlined";
 
 import ColumnEditor from "./ColumnEditor";
+import { vt } from "@/visualizations/visualizationsSettings";
 
 const { Text } = Typography;
 
@@ -73,7 +74,7 @@ export default function ColumnsSettings({ options, onOptionsChange, variant }: C
               </React.Fragment>
             }
             extra={
-              <Tooltip title="Toggle visibility" mouseEnterDelay={0} mouseLeaveDelay={0}>
+              <Tooltip title={vt("table.editor.toggleVisibility", "Toggle visibility")} mouseEnterDelay={0} mouseLeaveDelay={0}>
                 {column.visible ? (
                   <EyeOutlinedIcon
                     data-test={`${testPrefix}.Column.${column.name}.Visibility`}

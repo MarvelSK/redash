@@ -18,6 +18,7 @@ import {
   VisualizationType,
 } from "@redash/viz/lib";
 import { Renderer, Editor } from "@/components/visualizations/visualizationComponents";
+import { t } from "@/services/i18n";
 
 import "./EditVisualizationDialog.less";
 
@@ -41,11 +42,11 @@ function saveVisualization(visualization) {
 
   return Visualization.save(visualization)
     .then((result) => {
-      notification.success("Visualization saved");
+      notification.success(t("visualization.editor.saved", "Visualization saved"));
       return result;
     })
     .catch((error) => {
-      notification.error("Visualization could not be saved");
+      notification.error(t("visualization.editor.saveError", "Visualization could not be saved"));
       return Promise.reject(error);
     });
 }
@@ -54,10 +55,13 @@ function confirmDialogClose(isDirty) {
   return new Promise((resolve, reject) => {
     if (isDirty) {
       Modal.confirm({
-        title: "Visualization Editor",
-        content: "Are you sure you want to close the editor without saving?",
-        okText: "Yes",
-        cancelText: "No",
+        title: t("visualization.editor.closeConfirmTitle", "Visualization Editor"),
+        content: t(
+          "visualization.editor.closeConfirmContent",
+          "Are you sure you want to close the editor without saving?"
+        ),
+        okText: t("visualization.editor.yes", "Yes"),
+        cancelText: t("visualization.editor.no", "No"),
         onOk: () => resolve(),
         onCancel: () => reject(),
       });
@@ -159,6 +163,8 @@ function EditVisualizationDialog({ dialog, visualization, query, queryResult }) 
     ? filter(sortBy(registeredVisualizations, ["name"]), (vis) => !vis.isDeprecated)
     : pick(registeredVisualizations, [type]);
 
+  const getVisualizationTypeLabel = vis => t(`visualization.types.${vis.type}`, vis.name || vis.type);
+
   const vizTypeId = useUniqueId("visualization-type");
   const vizNameId = useUniqueId("visualization-name");
 
@@ -166,8 +172,8 @@ function EditVisualizationDialog({ dialog, visualization, query, queryResult }) 
     <Modal
       {...dialog.props}
       wrapClassName="ant-modal-fullscreen"
-      title="Visualization Editor"
-      okText="Save"
+      title={t("visualization.editor.title", "Visualization Editor")}
+      okText={t("visualization.editor.save", "Save")}
       okButtonProps={{
         loading: saveInProgress,
         disabled: saveInProgress,
@@ -179,7 +185,7 @@ function EditVisualizationDialog({ dialog, visualization, query, queryResult }) 
       <div className="edit-visualization-dialog">
         <div className="visualization-settings">
           <div className="m-b-15">
-            <label htmlFor={vizTypeId}>Visualization Type</label>
+            <label htmlFor={vizTypeId}>{t("visualization.editor.type", "Visualization Type")}</label>
             <Select
               data-test="VisualizationType"
               id={vizTypeId}
@@ -191,13 +197,13 @@ function EditVisualizationDialog({ dialog, visualization, query, queryResult }) 
             >
               {map(availableVisualizations, (vis) => (
                 <Select.Option key={vis.type} data-test={"VisualizationType." + vis.type}>
-                  {vis.name}
+                  {getVisualizationTypeLabel(vis)}
                 </Select.Option>
               ))}
             </Select>
           </div>
           <div className="m-b-15">
-            <label htmlFor={vizNameId}>Visualization Name</label>
+            <label htmlFor={vizNameId}>{t("visualization.editor.name", "Visualization Name")}</label>
             <Input
               data-test="VisualizationName"
               id={vizNameId}
@@ -218,7 +224,7 @@ function EditVisualizationDialog({ dialog, visualization, query, queryResult }) 
         </div>
         <div className="visualization-preview">
           <label htmlFor="visualization-preview" className="invisible hidden-xs">
-            Preview
+            {t("visualization.editor.preview", "Preview")}
           </label>
           <Filters filters={filters} onChange={setFilters} />
           <div className="scrollbox" data-test="VisualizationPreview">

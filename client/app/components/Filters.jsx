@@ -4,6 +4,7 @@ import React from "react";
 import PropTypes from "prop-types";
 import Select from "antd/lib/select";
 import { formatColumnValue } from "@/lib/utils";
+import { t } from "@/services/i18n";
 
 const ALL_VALUES = "###Redash::Filters::SelectAll###";
 const NONE_VALUES = "###Redash::Filters::Clear###";
@@ -88,7 +89,7 @@ function Filters({ filters, onChange }) {
                 className="col-sm-6 p-l-0 filter-container"
                 data-test={`FilterName-${filter.name}`}>
                 <label>{filter.friendlyName}</label>
-                {options.length === 0 && <Select className="w-100" disabled value="No values" />}
+                {options.length === 0 && <Select className="w-100" disabled value={t("filters.noValues", "No values")} />}
                 {options.length > 0 && (
                   <Select
                     labelInValue
@@ -107,19 +108,19 @@ function Filters({ filters, onChange }) {
                     showSearch
                     maxTagCount={3}
                     maxTagTextLength={10}
-                    maxTagPlaceholder={num => `+${num.length} more`}
+                    maxTagPlaceholder={num => t("filters.more", "+{count} more", { count: num.length })}
                     onChange={values => onChange(filter, values)}>
                     {!filter.multiple && options}
                     {filter.multiple && [
                       <Select.Option key={NONE_VALUES} data-test="ClearOption">
                         <i className="fa fa-square-o m-r-5" aria-hidden="true" />
-                        Clear
+                        {t("filters.clear", "Clear")}
                       </Select.Option>,
                       <Select.Option key={ALL_VALUES} data-test="SelectAllOption">
                         <i className="fa fa-check-square-o m-r-5" aria-hidden="true" />
-                        Select All
+                        {t("filters.selectAll", "Select All")}
                       </Select.Option>,
-                      <Select.OptGroup key="Values" title="Values">
+                      <Select.OptGroup key={t("filters.values", "Values")} title={t("filters.values", "Values")}>
                         {options}
                       </Select.OptGroup>,
                     ]}
