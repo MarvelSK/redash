@@ -335,7 +335,11 @@ function DashboardComponent(props) {
       />
       {!isEmpty(globalParameters) && (
         <div className="dashboard-parameters m-b-10 p-15 bg-white tiled" data-test="DashboardParameters">
-          <DateRangeQuickButtons parameters={globalParameters} onValuesChange={refreshDashboard} />
+          <DateRangeQuickButtons
+            parameters={globalParameters}
+            onValuesChange={refreshDashboard}
+            presets={dashboard.options?.dateRangeQuickPresets}
+          />
           <Parameters
             parameters={globalParameters}
             onValuesChange={refreshDashboard}

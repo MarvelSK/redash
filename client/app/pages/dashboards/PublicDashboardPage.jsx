@@ -30,7 +30,11 @@ function PublicDashboard({ dashboard }) {
       <PageHeader title={dashboard.name} />
       {!isEmpty(globalParameters) && (
         <div className="m-b-10 p-15 bg-white tiled">
-          <DateRangeQuickButtons parameters={globalParameters} onValuesChange={refreshDashboard} />
+          <DateRangeQuickButtons
+            parameters={globalParameters}
+            onValuesChange={refreshDashboard}
+            presets={dashboard.options?.dateRangeQuickPresets}
+          />
           <Parameters parameters={globalParameters} onValuesChange={refreshDashboard} />
         </div>
       )}

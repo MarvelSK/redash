@@ -32,7 +32,7 @@ function getPresetRange(presetKey) {
   }
 }
 
-const DATE_PRESETS = [
+const DEFAULT_DATE_PRESETS = [
   { key: "today", label: "Dnes" },
   { key: "current-week", label: "Aktualny tyzden" },
   { key: "previous-week", label: "Minuly tyzden" },
@@ -40,11 +40,34 @@ const DATE_PRESETS = [
   { key: "previous-month", label: "Minuly mesiac" },
 ];
 
-export default function DateRangeQuickButtons({ parameters, onValuesChange }) {
+function buildPresetList(presets) {
+  const source = Array.isArray(presets) && presets.length > 0 ? presets : DEFAULT_DATE_PRESETS;
+  const normalized = [];
+
+  source.forEach((item) => {
+    const preset = typeof item === "string" ? { key: item } : item;
+    const key = String(preset?.key || "").trim();
+    if (!key || !getPresetRange(key)) {
+      return;
+    }
+
+    const fallbackLabel = DEFAULT_DATE_PRESETS.find((defaultPreset) => defaultPreset.key === key)?.label || key;
+    const customLabel = String(preset?.label || "").trim();
+    normalized.push({
+      key,
+      label: customLabel || fallbackLabel,
+    });
+  });
+
+  return normalized;
+}
+
+export default function DateRangeQuickButtons({ parameters, onValuesChange, presets }) {
   const dateFromParam = parameters.find((param) => normalizeParameterName(param.name) === "date_from");
   const dateToParam = parameters.find((param) => normalizeParameterName(param.name) === "date_to");
+  const presetList = buildPresetList(presets);
 
-  if (!dateFromParam || !dateToParam) {
+  if (!dateFromParam || !dateToParam || presetList.length === 0) {
     return null;
   }
 
@@ -71,7 +94,7 @@ export default function DateRangeQuickButtons({ parameters, onValuesChange }) {
 
   return (
     <div className="m-b-10" data-test="DashboardDateQuickButtons">
-      {DATE_PRESETS.map((preset) => (
+      {presetList.map((preset) => (
         <Button
           key={preset.key}
           size="small"
@@ -89,9 +112,19 @@ export default function DateRangeQuickButtons({ parameters, onValuesChange }) {
 DateRangeQuickButtons.propTypes = {
   parameters: PropTypes.arrayOf(PropTypes.instanceOf(Parameter)),
   onValuesChange: PropTypes.func,
+  presets: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        key: PropTypes.string,
+        label: PropTypes.string,
+      }),
+    ])
+  ),
 };
 
 DateRangeQuickButtons.defaultProps = {
   parameters: [],
   onValuesChange: () => {},
+  presets: DEFAULT_DATE_PRESETS,
 };
