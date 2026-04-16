@@ -15,6 +15,7 @@ import Parameters from "@/components/Parameters";
 import Filters from "@/components/Filters";
 
 import { Dashboard } from "@/services/dashboard";
+import { currentUser } from "@/services/auth";
 import recordEvent from "@/services/recordEvent";
 import resizeObserver from "@/services/resizeObserver";
 import routes from "@/services/routes";
@@ -22,6 +23,11 @@ import location from "@/services/location";
 import url from "@/services/url";
 import useImmutableCallback from "@/lib/hooks/useImmutableCallback";
 import Group from "@/services/group";
+import { DATE_RANGE_PRESET_DEFINITIONS } from "@/components/dashboards/dateRangeQuickPresets";
+import {
+  DATE_PRESET_UI_LOCALES,
+  getPresetDefaultLabel,
+} from "@/components/dashboards/dateRangeQuickPresets.i18n";
 
 import useDashboard from "./hooks/useDashboard";
 import DashboardHeader from "./components/DashboardHeader";
@@ -61,6 +67,26 @@ function normalizeGroupId(groupId) {
   return Number(groupId);
 }
 
+function normalizeDatePresetForEditor(preset) {
+  if (typeof preset === "string") {
+    return {
+      key: preset,
+      label: "",
+      labelsByLocale: {},
+      visibleToGroupIds: [],
+      hideOnPublic: false,
+    };
+  }
+
+  return {
+    key: preset?.key || "today",
+    label: preset?.label || "",
+    labelsByLocale: preset?.labelsByLocale || {},
+    visibleToGroupIds: Array.isArray(preset?.visibleToGroupIds) ? preset.visibleToGroupIds : [],
+    hideOnPublic: !!preset?.hideOnPublic,
+  };
+}
+
 function DashboardSettings({ dashboardConfiguration, globalParameters }) {
   const { dashboard, updateDashboard } = dashboardConfiguration;
   const [groups, setGroups] = useState([]);
@@ -72,6 +98,27 @@ function DashboardSettings({ dashboardConfiguration, globalParameters }) {
   }, []);
 
   const parameterPermissions = dashboard.options.parameterPermissions || {};
+  const dateRangeQuickPresets = Array.isArray(dashboard.options.dateRangeQuickPresets)
+    ? dashboard.options.dateRangeQuickPresets.map(normalizeDatePresetForEditor)
+    : [];
+  const defaultDateRangeQuickPreset = dashboard.options.defaultDateRangeQuickPreset || null;
+  const presetOptions = Object.entries(DATE_RANGE_PRESET_DEFINITIONS).map(([key, item]) => ({
+    key,
+    label: getPresetDefaultLabel(key, "en"),
+  }));
+  const localeCodesFromOptions = Object.keys(dashboard.options.parameterTranslations || {});
+  const localeCodesFromPresets = dateRangeQuickPresets.flatMap(preset => Object.keys(preset.labelsByLocale || {}));
+  const baseLocaleCodes = DATE_PRESET_UI_LOCALES.map(locale => locale.code);
+  const allLocaleCodes = Array.from(new Set([...baseLocaleCodes, ...localeCodesFromOptions, ...localeCodesFromPresets]));
+
+  const updateDashboardOptions = patch => {
+    updateDashboard({
+      options: {
+        ...dashboard.options,
+        ...patch,
+      },
+    });
+  };
 
   const updateParameterPermission = (parameterName, patch) => {
     const currentRule = parameterPermissions[parameterName] || {};
@@ -113,6 +160,70 @@ function DashboardSettings({ dashboardConfiguration, globalParameters }) {
 
     updateParameterPermission(parameterName, {
       groupValueOverrides: currentOverrides.filter((_, currentIndex) => currentIndex !== index),
+    });
+  };
+
+  const updateDatePreset = (index, patch) => {
+    const nextPresets = dateRangeQuickPresets.map((preset, currentIndex) =>
+      currentIndex === index ? { ...preset, ...patch } : preset
+    );
+    updateDashboardOptions({ dateRangeQuickPresets: nextPresets });
+  };
+
+  const updateDatePresetLocaleLabel = (index, locale, label) => {
+    const preset = dateRangeQuickPresets[index] || {};
+    const labelsByLocale = { ...(preset.labelsByLocale || {}) };
+    const trimmedLabel = String(label || "").trim();
+    if (trimmedLabel) {
+      labelsByLocale[locale] = trimmedLabel;
+    } else {
+      delete labelsByLocale[locale];
+    }
+    updateDatePreset(index, { labelsByLocale });
+  };
+
+  const moveDatePreset = (index, direction) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= dateRangeQuickPresets.length) {
+      return;
+    }
+
+    const nextPresets = [...dateRangeQuickPresets];
+    const temp = nextPresets[index];
+    nextPresets[index] = nextPresets[targetIndex];
+    nextPresets[targetIndex] = temp;
+    updateDashboardOptions({ dateRangeQuickPresets: nextPresets });
+  };
+
+  const addDatePreset = () => {
+    updateDashboardOptions({
+      dateRangeQuickPresets: [
+        ...dateRangeQuickPresets,
+        {
+          key: "today",
+          label: "",
+          labelsByLocale: {},
+          visibleToGroupIds: [],
+          hideOnPublic: false,
+        },
+      ],
+    });
+  };
+
+  const removeDatePreset = index => {
+    const removedPreset = dateRangeQuickPresets[index];
+    const nextPresets = dateRangeQuickPresets.filter((_, currentIndex) => currentIndex !== index);
+    const patch = { dateRangeQuickPresets: nextPresets };
+    if (removedPreset?.key && defaultDateRangeQuickPreset === removedPreset.key) {
+      patch.defaultDateRangeQuickPreset = null;
+    }
+    updateDashboardOptions(patch);
+  };
+
+  const resetDatePresetsToDefault = () => {
+    updateDashboardOptions({
+      dateRangeQuickPresets: [],
+      defaultDateRangeQuickPreset: null,
     });
   };
 
@@ -234,6 +345,111 @@ function DashboardSettings({ dashboardConfiguration, globalParameters }) {
           })}
         </div>
       )}
+
+      <div className="m-t-20">
+        <h4 className="m-b-15">Date Range Quick Presets</h4>
+        <div className="m-b-10 text-muted">
+          Configure quick buttons for <code>date_from</code> and <code>date_to</code> parameters.
+        </div>
+
+        {map(dateRangeQuickPresets, (preset, index) => (
+          <div key={`date-preset-${index}`} className="m-b-15 p-10" style={{ border: "1px solid #eaeaea" }}>
+            <div className="m-b-5">Preset key</div>
+            <Select
+              value={preset.key}
+              style={{ width: "100%" }}
+              onChange={(value) => updateDatePreset(index, { key: value })}
+            >
+              {map(presetOptions, (option) => (
+                <Select.Option key={option.key} value={option.key}>
+                  {option.label} ({option.key})
+                </Select.Option>
+              ))}
+            </Select>
+
+            <div className="m-t-10 m-b-5">Default button label</div>
+            <Input
+              value={preset.label || ""}
+              onChange={(event) => updateDatePreset(index, { label: event.target.value })}
+              placeholder="Optional custom label"
+            />
+
+            {map(allLocaleCodes, (localeCode) => {
+              const localeLabel = DATE_PRESET_UI_LOCALES.find(item => item.code === localeCode)?.label || localeCode;
+              return (
+                <div key={`${preset.key}-locale-${localeCode}`}>
+                  <div className="m-t-10 m-b-5">Label for {localeLabel} ({localeCode})</div>
+                  <Input
+                    value={preset.labelsByLocale?.[localeCode] || ""}
+                    onChange={(event) => updateDatePresetLocaleLabel(index, localeCode, event.target.value)}
+                    placeholder={`Optional ${localeCode} label`}
+                  />
+                </div>
+              );
+            })}
+
+            <div className="m-t-10 m-b-5">Visible only for groups (optional)</div>
+            <Select
+              mode="multiple"
+              value={preset.visibleToGroupIds || []}
+              style={{ width: "100%" }}
+              placeholder="Leave empty to show for all groups"
+              onChange={(value) => updateDatePreset(index, { visibleToGroupIds: normalizeGroupIds(value) })}
+            >
+              {map(groups, group => (
+                <Select.Option key={group.id} value={group.id}>
+                  {group.name}
+                </Select.Option>
+              ))}
+            </Select>
+
+            <div className="m-t-10">
+              <Checkbox
+                checked={!!preset.hideOnPublic}
+                onChange={({ target }) => updateDatePreset(index, { hideOnPublic: target.checked })}
+              >
+                Hide this preset on public dashboard links
+              </Checkbox>
+            </div>
+
+            <div className="m-t-10">
+              <Button className="m-r-5" onClick={() => moveDatePreset(index, -1)} disabled={index === 0}>
+                Move up
+              </Button>
+              <Button
+                className="m-r-5"
+                onClick={() => moveDatePreset(index, 1)}
+                disabled={index === dateRangeQuickPresets.length - 1}
+              >
+                Move down
+              </Button>
+              <Button onClick={() => removeDatePreset(index)}>Remove preset</Button>
+            </div>
+          </div>
+        ))}
+
+        <div className="m-b-10">
+          <Button className="m-r-10" onClick={addDatePreset}>
+            Add date preset
+          </Button>
+          <Button onClick={resetDatePresetsToDefault}>Reset presets to default</Button>
+        </div>
+
+        <div className="m-t-10 m-b-5">Default preset (auto-applied on first load if URL has no date params)</div>
+        <Select
+          value={defaultDateRangeQuickPreset}
+          style={{ width: "100%" }}
+          placeholder="No default preset"
+          allowClear
+          onChange={(value) => updateDashboardOptions({ defaultDateRangeQuickPreset: value || null })}
+        >
+          {map(dateRangeQuickPresets, (preset, index) => (
+            <Select.Option key={`${preset.key}-${index}`} value={preset.key}>
+              {preset.key}
+            </Select.Option>
+          ))}
+        </Select>
+      </div>
     </div>
   );
 }
@@ -339,6 +555,9 @@ function DashboardComponent(props) {
             parameters={globalParameters}
             onValuesChange={refreshDashboard}
             presets={dashboard.options?.dateRangeQuickPresets}
+            defaultPresetKey={dashboard.options?.defaultDateRangeQuickPreset}
+            userGroupIds={currentUser.groups || []}
+            dashboardId={dashboard.id}
           />
           <Parameters
             parameters={globalParameters}

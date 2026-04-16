@@ -34,6 +34,9 @@ function PublicDashboard({ dashboard }) {
             parameters={globalParameters}
             onValuesChange={refreshDashboard}
             presets={dashboard.options?.dateRangeQuickPresets}
+            defaultPresetKey={dashboard.options?.defaultDateRangeQuickPreset}
+            isPublic
+            dashboardId={dashboard.id}
           />
           <Parameters parameters={globalParameters} onValuesChange={refreshDashboard} />
         </div>

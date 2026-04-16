@@ -1,0 +1,60 @@
+{
+  "filters": {
+    "noValues": "Keine Werte",
+    "clear": "Leeren",
+    "selectAll": "Alle auswahlen",
+    "values": "Werte",
+    "more": "+{count} mehr"
+  },
+  "visualization": {
+    "editor": {
+      "title": "Visualisierungseditor",
+      "save": "Speichern",
+      "type": "Visualisierungstyp",
+      "name": "Visualisierungsname",
+      "preview": "Vorschau",
+      "saved": "Visualisierung gespeichert",
+      "saveError": "Visualisierung konnte nicht gespeichert werden",
+      "closeConfirmTitle": "Visualisierungseditor",
+      "closeConfirmContent": "Mochten Sie den Editor wirklich ohne Speichern schliessen?",
+      "yes": "Ja",
+      "no": "Nein"
+    },
+    "tableEditor": {
+      "tabs": {
+        "columns": "Spalten",
+        "grid": "Raster"
+      },
+      "itemsPerPage": "Elemente pro Seite",
+      "toggleVisibility": "Sichtbarkeit umschalten"
+    },
+    "types": {
+      "CHART": "Diagramm",
+      "TABLE": "Tabelle",
+      "COUNTER": "Zahler",
+      "COHORT": "Kohorte",
+      "MAP": "Karte",
+      "DETAILS": "Details",
+      "PIVOT": "Pivot-Tabelle",
+      "SUNBURST": "Sunburst",
+      "SANKEY": "Sankey",
+      "WORD_CLOUD": "Wortwolke",
+      "FUNNEL": "Trichter",
+      "CHOROPLETH": "Choropleth"
+    }
+  },
+  "datePresets": {
+    "labels": {
+      "today": "Heute",
+      "current-week": "Aktuelle Woche",
+      "previous-week": "Vorherige Woche",
+      "current-month": "Aktueller Monat",
+      "previous-month": "Vorheriger Monat",
+      "last-7-days": "Letzte 7 Tage",
+      "last-30-days": "Letzte 30 Tage",
+      "this-quarter": "Aktuelles Quartal",
+      "previous-quarter": "Vorheriges Quartal",
+      "year-to-date": "Jahr bis heute"
+    }
+  }
+}

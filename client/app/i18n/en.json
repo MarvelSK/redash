@@ -1,0 +1,60 @@
+{
+  "filters": {
+    "noValues": "No values",
+    "clear": "Clear",
+    "selectAll": "Select All",
+    "values": "Values",
+    "more": "+{count} more"
+  },
+  "visualization": {
+    "editor": {
+      "title": "Visualization Editor",
+      "save": "Save",
+      "type": "Visualization Type",
+      "name": "Visualization Name",
+      "preview": "Preview",
+      "saved": "Visualization saved",
+      "saveError": "Visualization could not be saved",
+      "closeConfirmTitle": "Visualization Editor",
+      "closeConfirmContent": "Are you sure you want to close the editor without saving?",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "tableEditor": {
+      "tabs": {
+        "columns": "Columns",
+        "grid": "Grid"
+      },
+      "itemsPerPage": "Items per page",
+      "toggleVisibility": "Toggle visibility"
+    },
+    "types": {
+      "CHART": "Chart",
+      "TABLE": "Table",
+      "COUNTER": "Counter",
+      "COHORT": "Cohort",
+      "MAP": "Map",
+      "DETAILS": "Details",
+      "PIVOT": "Pivot Table",
+      "SUNBURST": "Sunburst",
+      "SANKEY": "Sankey",
+      "WORD_CLOUD": "Word Cloud",
+      "FUNNEL": "Funnel",
+      "CHOROPLETH": "Choropleth"
+    }
+  },
+  "datePresets": {
+    "labels": {
+      "today": "Today",
+      "current-week": "Current Week",
+      "previous-week": "Previous Week",
+      "current-month": "Current Month",
+      "previous-month": "Previous Month",
+      "last-7-days": "Last 7 Days",
+      "last-30-days": "Last 30 Days",
+      "this-quarter": "This Quarter",
+      "previous-quarter": "Previous Quarter",
+      "year-to-date": "Year to Date"
+    }
+  }
+}

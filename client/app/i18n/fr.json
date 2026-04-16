@@ -1,0 +1,60 @@
+{
+  "filters": {
+    "noValues": "Aucune valeur",
+    "clear": "Effacer",
+    "selectAll": "Tout selectionner",
+    "values": "Valeurs",
+    "more": "+{count} de plus"
+  },
+  "visualization": {
+    "editor": {
+      "title": "Editeur de visualisation",
+      "save": "Enregistrer",
+      "type": "Type de visualisation",
+      "name": "Nom de la visualisation",
+      "preview": "Apercu",
+      "saved": "Visualisation enregistree",
+      "saveError": "La visualisation n'a pas pu etre enregistree",
+      "closeConfirmTitle": "Editeur de visualisation",
+      "closeConfirmContent": "Voulez-vous vraiment fermer l'editeur sans enregistrer ?",
+      "yes": "Oui",
+      "no": "Non"
+    },
+    "tableEditor": {
+      "tabs": {
+        "columns": "Colonnes",
+        "grid": "Grille"
+      },
+      "itemsPerPage": "Elements par page",
+      "toggleVisibility": "Basculer la visibilite"
+    },
+    "types": {
+      "CHART": "Graphique",
+      "TABLE": "Tableau",
+      "COUNTER": "Compteur",
+      "COHORT": "Cohorte",
+      "MAP": "Carte",
+      "DETAILS": "Details",
+      "PIVOT": "Tableau croise",
+      "SUNBURST": "Sunburst",
+      "SANKEY": "Sankey",
+      "WORD_CLOUD": "Nuage de mots",
+      "FUNNEL": "Entonnoir",
+      "CHOROPLETH": "Choroplethe"
+    }
+  },
+  "datePresets": {
+    "labels": {
+      "today": "Aujourd'hui",
+      "current-week": "Semaine en cours",
+      "previous-week": "Semaine precedente",
+      "current-month": "Mois en cours",
+      "previous-month": "Mois precedent",
+      "last-7-days": "7 derniers jours",
+      "last-30-days": "30 derniers jours",
+      "this-quarter": "Trimestre en cours",
+      "previous-quarter": "Trimestre precedent",
+      "year-to-date": "Depuis le debut de l'annee"
+    }
+  }
+}
