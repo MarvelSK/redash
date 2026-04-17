@@ -70,7 +70,7 @@ def load_config() -> AppConfig:
         mysql_host=env_str("MYSQL_HOST", "127.0.0.1"),
         mysql_port=env_int("MYSQL_PORT", 3306),
         mysql_user=env_str("MYSQL_USER", "people_counter"),
-        mysql_password=env_str("MYSQL_PASSWORD", "people_counter"),
+        mysql_password=env_str("MYSQL_PASSWORD", "change_me"),
         mysql_database=env_str("MYSQL_DATABASE", "people_counter"),
     )
 
