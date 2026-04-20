@@ -91,3 +91,61 @@ For an already running Redash instance, use the setup in [REDASH_SETUP.md](REDAS
 - Excel handling expects the same workbook layout as the original VBA logic.
 - If you need sales data in Redash later, add a non-Microsoft source importer and populate `kpi_daily_overview.sales_net`.
 - Docker Compose includes the full Redash runtime, but the ETL itself only depends on MySQL.
+
+## Windows scheduled run
+
+The ETL already archives processed ZIP files. In `people_counter_etl.py`, each successfully processed ZIP is moved to the `archive` folder after parsing and database write.
+
+Two helper scripts are included for Windows Task Scheduler:
+
+- `run_people_counter_etl.ps1`: runs `people_counter_etl.py run`, optionally loading variables from `.env`, and writes logs to `runtime/logs`.
+- `register_people_counter_task.ps1`: creates a daily Scheduled Task that calls the runner script.
+
+### 1) Prepare environment
+
+From this `vba` folder:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Edit `.env` with your MySQL and folder paths.
+
+### 2) Test ETL runner manually
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run_people_counter_etl.ps1
+```
+
+Optional single-zip test:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run_people_counter_etl.ps1 -SingleZip
+```
+
+### 3) Register daily schedule
+
+Example: run every day at 06:30.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\register_people_counter_task.ps1 -TaskName PeopleCounterETL -RunAt 06:30
+```
+
+Optional flags for the task:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\register_people_counter_task.ps1 -TaskName PeopleCounterETL -RunAt 06:30 -SingleZip -VerboseLogging
+```
+
+### 4) Validate and operate task
+
+```powershell
+Get-ScheduledTask -TaskName PeopleCounterETL
+Start-ScheduledTask -TaskName PeopleCounterETL
+Get-ScheduledTaskInfo -TaskName PeopleCounterETL
+```
+
+Logs are written to `runtime/logs`.
